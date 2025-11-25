@@ -50,13 +50,15 @@ export function CardHeader({
 
 export function CardBody({ 
   children, 
-  className 
+  className,
+  style
 }: { 
   children: ReactNode; 
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <div className={clsx('card__body', className)}>
+    <div className={clsx('card__body', className)} style={style}>
       {children}
     </div>
   );
