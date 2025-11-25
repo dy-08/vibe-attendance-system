@@ -1,0 +1,141 @@
+// Prisma Schema - 학원 출결 관리 시스템
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자 역할
+enum Role {
+  STUDENT       // 학생
+  TEACHER       // 선생님
+  SUPER_ADMIN   // 슈퍼관리자
+}
+
+// 출결 상태
+enum AttendanceStatus {
+  PRESENT       // 출석
+  ABSENT        // 결석
+  LATE          // 지각
+  EARLY_LEAVE   // 조퇴
+  SICK_LEAVE    // 병가
+  VACATION      // 휴가
+}
+
+// 사용자
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  role          Role      @default(STUDENT)
+  avatarUrl     String?   // 프로필 사진
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 학생인 경우
+  studentClass  ClassMember[]
+  attendances   Attendance[]
+  seat          Seat?
+
+  // 선생님인 경우
+  teachingClasses Class[]
+
+  @@map("users")
+}
+
+// 클래스 (반)
+model Class {
+  id          String    @id @default(cuid())
+  name        String    // 예: "중등 수학 A반"
+  description String?
+  schedule    String?   // 예: "월,수,금 14:00-16:00"
+  maxStudents Int       @default(30)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 담당 선생님
+  teacher     User      @relation(fields: [teacherId], references: [id])
+  teacherId   String
+
+  // 클래스 멤버
+  members     ClassMember[]
+  seats       Seat[]
+  attendances Attendance[]
+
+  @@map("classes")
+}
+
+// 클래스 멤버 (학생-클래스 관계)
+model ClassMember {
+  id        String   @id @default(cuid())
+  joinedAt  DateTime @default(now())
+
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+
+  @@unique([studentId, classId])
+  @@map("class_members")
+}
+
+// 좌석
+model Seat {
+  id        String   @id @default(cuid())
+  row       Int      // 행
+  col       Int      // 열
+  label     String?  // 좌석 라벨 (예: "A1")
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+
+  // 지정된 학생 (nullable = 빈 좌석)
+  student   User?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  studentId String?  @unique
+
+  @@unique([classId, row, col])
+  @@map("seats")
+}
+
+// 출결 기록
+model Attendance {
+  id        String           @id @default(cuid())
+  date      DateTime         @db.Date
+  status    AttendanceStatus @default(PRESENT)
+  note      String?          // 사유/메모
+  checkInAt DateTime?        // 체크인 시간
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  student   User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+
+  @@unique([studentId, classId, date])
+  @@map("attendances")
+}
+
+// 알림 로그
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // "SMS", "KAKAO"
+  recipient String   // 수신자 (전화번호 또는 카카오 ID)
+  message   String
+  status    String   @default("PENDING") // PENDING, SENT, FAILED
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+

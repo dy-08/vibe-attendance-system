@@ -1,0 +1,21 @@
+// Main SCSS Entry Point
+// 학원 출결 관리 시스템 스타일
+
+@import 'utils/variables';
+@import 'utils/mixins';
+@import 'base/reset';
+@import 'base/typography';
+@import 'base/utilities';
+@import 'components/buttons';
+@import 'components/inputs';
+@import 'components/cards';
+@import 'components/avatar';
+@import 'components/modal';
+@import 'components/tables';
+@import 'components/badges';
+@import 'components/sidebar';
+@import 'components/charts';
+@import 'components/seats';
+@import 'pages/auth';
+@import 'pages/dashboard';
+

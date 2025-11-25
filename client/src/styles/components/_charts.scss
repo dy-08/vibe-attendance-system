@@ -1,0 +1,222 @@
+// ====================================
+// Chart Styles (Recharts customization)
+// ====================================
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  min-height: 250px;
+}
+
+// Recharts tooltip
+.recharts-tooltip-wrapper {
+  .recharts-default-tooltip {
+    @include card;
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    border: none !important;
+
+    .recharts-tooltip-label {
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .recharts-tooltip-item-list {
+      margin: 0;
+      padding: 0;
+    }
+
+    .recharts-tooltip-item {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      padding: 2px 0;
+    }
+  }
+}
+
+// Recharts legend
+.recharts-legend-wrapper {
+  .recharts-legend-item {
+    margin-right: var(--spacing-md) !important;
+    
+    .recharts-legend-item-text {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+    }
+  }
+}
+
+// Custom chart legend
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  justify-content: center;
+  margin-top: var(--spacing-md);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
+
+  &__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+}
+
+// Progress ring
+.progress-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &__svg {
+    transform: rotate(-90deg);
+  }
+
+  &__bg {
+    fill: none;
+    stroke: var(--gray-200);
+    
+    [data-theme='dark'] & {
+      stroke: var(--gray-700);
+    }
+  }
+
+  &__progress {
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease;
+  }
+
+  &__text {
+    position: absolute;
+    text-align: center;
+
+    &-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--text-primary);
+      display: block;
+    }
+
+    &-label {
+      font-size: var(--font-size-xs);
+      color: var(--text-tertiary);
+    }
+  }
+
+  // Sizes
+  &--sm {
+    width: 80px;
+    height: 80px;
+
+    .progress-ring__text-value {
+      font-size: var(--font-size-lg);
+    }
+  }
+
+  &--md {
+    width: 120px;
+    height: 120px;
+  }
+
+  &--lg {
+    width: 160px;
+    height: 160px;
+
+    .progress-ring__text-value {
+      font-size: var(--font-size-3xl);
+    }
+  }
+}
+
+// Stat comparison bars
+.stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  &__header {
+    @include flex-between;
+    font-size: var(--font-size-sm);
+  }
+
+  &__label {
+    color: var(--text-secondary);
+  }
+
+  &__value {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+  }
+
+  &__track {
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+
+    [data-theme='dark'] & {
+      background: var(--gray-700);
+    }
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal);
+
+    &--primary {
+      background: linear-gradient(90deg, var(--color-primary-400), var(--color-primary-500));
+    }
+
+    &--secondary {
+      background: linear-gradient(90deg, var(--color-secondary-400), var(--color-secondary-500));
+    }
+
+    &--success {
+      background: var(--color-success);
+    }
+
+    &--warning {
+      background: var(--color-warning);
+    }
+
+    &--error {
+      background: var(--color-error);
+    }
+  }
+}
+
+// Mini sparkline chart
+.sparkline {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+
+  &__bar {
+    width: 4px;
+    background: var(--color-primary-400);
+    border-radius: 2px;
+    transition: height var(--transition-fast);
+
+    &:hover {
+      background: var(--color-primary-500);
+    }
+  }
+}
+
