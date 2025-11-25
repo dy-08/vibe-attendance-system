@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: attendance-api
+    env: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm run dev
+    envVars:
+      - key: NODE_ENV
+        value: production
+
