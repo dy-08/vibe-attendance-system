@@ -81,7 +81,7 @@ export default function StudentDashboard() {
     (acc, cs) => ({
       present: acc.present + cs.stats.present,
       absent: acc.absent + cs.stats.absent,
-      late: acc.stats?.late || 0 + cs.stats.late,
+      late: acc.late + cs.stats.late,
       total: acc.total + cs.stats.total,
     }),
     { present: 0, absent: 0, late: 0, total: 0 }
