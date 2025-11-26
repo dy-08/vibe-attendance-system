@@ -20,6 +20,15 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// Request logging (개발 환경)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+  });
+}
+
 app.use('/uploads', express.static('uploads'));
 
 // Routes
