@@ -14,7 +14,7 @@
 // Left side - Branding
 .auth-brand {
   flex: 1;
-  background: linear-gradient(135deg, var(--color-primary-400), var(--color-secondary-500));
+  background: linear-gradient(135deg, var(--color-primary-300) 0%, var(--color-secondary-400) 100%);
   padding: var(--spacing-2xl);
   display: flex;
   flex-direction: column;
@@ -33,7 +33,7 @@
     position: absolute;
     inset: 0;
     background-image: 
-      radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
       radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
   }
 
@@ -42,24 +42,30 @@
     z-index: 1;
     color: white;
     max-width: 480px;
+    text-align: center;
+    margin: 0 auto;
   }
 
   &__logo {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-xl);
 
     &-icon {
       width: 48px;
       height: 48px;
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
       border-radius: var(--radius-md);
       @include flex-center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 
       svg {
         width: 28px;
         height: 28px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
       }
     }
 
@@ -82,7 +88,7 @@
 
   &__description {
     font-size: var(--font-size-lg);
-    opacity: 0.9;
+    opacity: 1;
     line-height: var(--line-height-relaxed);
 
     @include mobile {
@@ -95,6 +101,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    align-items: center;
 
     @include mobile {
       display: none;
@@ -104,13 +111,21 @@
   &__feature {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-sm);
     font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-md);
+    width: fit-content;
+    margin: 0 auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
     svg {
       width: 20px;
       height: 20px;
-      opacity: 0.9;
+      opacity: 1;
     }
   }
 }
@@ -261,6 +276,32 @@
 
       svg {
         color: var(--color-primary-500);
+      }
+    }
+  }
+
+  // Social login buttons
+  &__social {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 48px;
+      font-size: var(--font-size-sm);
+      transition: all var(--transition-fast);
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      svg {
+        flex-shrink: 0;
       }
     }
   }

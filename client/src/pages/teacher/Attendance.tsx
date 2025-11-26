@@ -157,7 +157,7 @@ export default function TeacherAttendance() {
                 onChange={(e) => setSelectedClass(e.target.value)}
               />
             </div>
-            <div>
+            <div className="form-group">
               <label className="form-label">날짜</label>
               <input
                 type="date"

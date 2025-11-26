@@ -46,6 +46,18 @@ export const authAPI = {
     api.get('/auth/me'),
   updatePassword: (currentPassword: string, newPassword: string) =>
     api.put('/auth/password', { currentPassword, newPassword }),
+  getKakaoUrl: () =>
+    api.get('/auth/kakao'),
+  kakaoCallback: (code: string) =>
+    api.post('/auth/kakao/callback', { code }),
+  getNaverUrl: () =>
+    api.get('/auth/naver'),
+  naverCallback: (code: string, state: string) =>
+    api.post('/auth/naver/callback', { code, state }),
+  findEmail: (name: string, phone: string) =>
+    api.post('/auth/find-email', { name, phone }),
+  resetPassword: (email: string, name: string) =>
+    api.post('/auth/reset-password', { email, name }),
 };
 
 export const userAPI = {

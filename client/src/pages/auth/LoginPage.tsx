@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import { authAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 
 const EmailIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -74,6 +76,43 @@ export default function LoginPage() {
     }
   };
 
+  const [kakaoEnabled, setKakaoEnabled] = useState(true);
+  const [naverEnabled, setNaverEnabled] = useState(true);
+
+  useEffect(() => {
+    // 소셜 로그인 설정 확인
+    authAPI.getKakaoUrl().catch(() => setKakaoEnabled(false));
+    authAPI.getNaverUrl().catch(() => setNaverEnabled(false));
+  }, []);
+
+  const handleKakaoLogin = async () => {
+    if (!kakaoEnabled) {
+      toast.error('카카오 로그인이 설정되지 않았습니다.\n카카오 개발자 센터에서 앱을 등록하고 환경변수를 설정해주세요.');
+      return;
+    }
+    try {
+      const response = await authAPI.getKakaoUrl();
+      window.location.href = response.data.data.url;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '카카오 로그인을 시작할 수 없습니다.');
+      setKakaoEnabled(false);
+    }
+  };
+
+  const handleNaverLogin = async () => {
+    if (!naverEnabled) {
+      toast.error('네이버 로그인이 설정되지 않았습니다.\n네이버 개발자 센터에서 애플리케이션을 등록하고 환경변수를 설정해주세요.');
+      return;
+    }
+    try {
+      const response = await authAPI.getNaverUrl();
+      window.location.href = response.data.data.url;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '네이버 로그인을 시작할 수 없습니다.');
+      setNaverEnabled(false);
+    }
+  };
+
   return (
     <div className="auth-form">
       <div className="auth-form__header">
@@ -118,8 +157,65 @@ export default function LoginPage() {
         </div>
       </form>
 
+      <div className="auth-form__divider">
+        <span>또는</span>
+      </div>
+
+      <div className="auth-form__social">
+        <Button
+          variant="outline"
+          full
+          onClick={handleKakaoLogin}
+          disabled={!kakaoEnabled}
+          style={{
+            background: kakaoEnabled ? '#FEE500' : '#f4f4f5',
+            borderColor: kakaoEnabled ? '#FEE500' : '#e4e4e7',
+            color: kakaoEnabled ? '#000000' : '#71717a',
+            fontWeight: 'var(--font-weight-medium)',
+            opacity: kakaoEnabled ? 1 : 0.6,
+            cursor: kakaoEnabled ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginRight: '8px' }}>
+            <path d="M9 0C4.03 0 0 3.42 0 7.64c0 2.49 1.62 4.69 4.08 6.07L2.7 18l4.71-2.47c.63.09 1.27.14 1.92.14 4.97 0 9-3.42 9-7.64C18 3.42 13.97 0 9 0z" fill="currentColor"/>
+          </svg>
+          카카오로 로그인
+        </Button>
+        <Button
+          variant="outline"
+          full
+          onClick={handleNaverLogin}
+          disabled={!naverEnabled}
+          style={{
+            background: naverEnabled ? '#03C75A' : '#f4f4f5',
+            borderColor: naverEnabled ? '#03C75A' : '#e4e4e7',
+            color: naverEnabled ? '#FFFFFF' : '#71717a',
+            fontWeight: 'var(--font-weight-medium)',
+            marginTop: 'var(--spacing-sm)',
+            opacity: naverEnabled ? 1 : 0.6,
+            cursor: naverEnabled ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px', flexShrink: 0 }}>
+            <path d="M13.859 12L7.07 0H0v24h7.07V12l6.789 12h7.07L13.859 12z" fill="white"/>
+          </svg>
+          네이버로 로그인
+        </Button>
+      </div>
+
       <div className="auth-form__footer">
-        계정이 없으신가요? <Link to="/register">회원가입</Link>
+        <div className="mb-sm">
+          <Link to="/find-email" className="auth-link" style={{ marginRight: 'var(--spacing-sm)' }}>
+            이메일 찾기
+          </Link>
+          <span style={{ color: 'var(--text-tertiary)' }}>|</span>
+          <Link to="/reset-password" className="auth-link" style={{ marginLeft: 'var(--spacing-sm)' }}>
+            비밀번호 찾기
+          </Link>
+        </div>
+        <div>
+          계정이 없으신가요? <Link to="/register">회원가입</Link>
+        </div>
       </div>
 
       {/* Demo accounts info */}

@@ -194,12 +194,6 @@ export default function DashboardLayout() {
             </div>
             <span className="sidebar__logo-text">출결 관리</span>
           </div>
-          <button 
-            className="sidebar__toggle"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-          </button>
         </div>
 
         <nav className="sidebar__nav">
@@ -274,9 +268,16 @@ export default function DashboardLayout() {
           <div className="dashboard-header__left">
             <button 
               className="dashboard-header__menu-btn"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => {
+                // 모바일에서는 사이드바 열기, 데스크톱에서는 접기/펼치기
+                if (window.innerWidth < 768) {
+                  setSidebarOpen(true);
+                } else {
+                  setCollapsed(!collapsed);
+                }
+              }}
             >
-              <MenuIcon />
+              {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
             </button>
             <h1 className="dashboard-header__title">{getPageTitle()}</h1>
           </div>

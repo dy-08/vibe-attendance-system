@@ -58,7 +58,8 @@ interface OverviewData {
   warningStudents: { id: string; name: string; email: string; avatarUrl?: string; rate: number; absent: number }[];
 }
 
-const COLORS = ['var(--color-success)', 'var(--color-error)', 'var(--color-warning)', 'var(--color-info)'];
+// 파스텔 톤 색상
+const COLORS = ['#86efac', '#fca5a5', '#fde047', '#93c5fd'];
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
@@ -151,11 +152,11 @@ export default function AdminDashboard() {
               </div>
               <div className="flex flex-col gap-md">
                 <div className="flex items-center gap-sm">
-                  <div style={{ width: 12, height: 12, borderRadius: 2, background: 'var(--color-success)' }} />
+                  <div style={{ width: 12, height: 12, borderRadius: 2, background: '#86efac' }} />
                   <span className="text-sm">출석: {data.monthlyStats.present}</span>
                 </div>
                 <div className="flex items-center gap-sm">
-                  <div style={{ width: 12, height: 12, borderRadius: 2, background: 'var(--color-error)' }} />
+                  <div style={{ width: 12, height: 12, borderRadius: 2, background: '#fca5a5' }} />
                   <span className="text-sm">결석: {data.monthlyStats.absent}</span>
                 </div>
                 <div className="text-2xl font-bold mt-md">
@@ -197,7 +198,7 @@ export default function AdminDashboard() {
                         borderRadius: 'var(--radius-md)',
                       }}
                     />
-                    <Bar dataKey="rate" fill="var(--color-primary-400)" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="rate" fill="#7dd3fc" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

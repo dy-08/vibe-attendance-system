@@ -4,6 +4,7 @@ import { Card, CardHeader, CardBody } from '../../components/common/Card';
 import { Select } from '../../components/common/Input';
 import { AttendanceBadge } from '../../components/common/Badge';
 import EmptyState from '../../components/common/EmptyState';
+import Modal from '../../components/common/Modal';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -44,6 +45,8 @@ export default function StudentAttendance() {
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -98,6 +101,28 @@ export default function StudentAttendance() {
       VACATION: 'other',
     };
     return status ? statusMap[status] || '' : '';
+  };
+
+  // Get status label
+  const getStatusLabel = (status?: string) => {
+    const statusMap: Record<string, string> = {
+      PRESENT: '출석',
+      ABSENT: '결석',
+      LATE: '지각',
+      EARLY_LEAVE: '조퇴',
+      SICK_LEAVE: '병가',
+      VACATION: '휴가',
+    };
+    return status ? statusMap[status] || status : '';
+  };
+
+  // Handle day click
+  const handleDayClick = (day: Date) => {
+    const attendance = getAttendanceForDay(day);
+    if (attendance) {
+      setSelectedDay(day);
+      setDetailModalOpen(true);
+    }
   };
 
   const goToPrevMonth = () => {
@@ -181,7 +206,9 @@ export default function StudentAttendance() {
                   key={day.toISOString()}
                   className={`calendar__day ${
                     !isSameMonth(day, currentDate) ? 'calendar__day--other-month' : ''
-                  } ${isToday(day) ? 'calendar__day--today' : ''}`}
+                  } ${isToday(day) ? 'calendar__day--today' : ''} ${attendance ? 'calendar__day--has-attendance' : ''}`}
+                  onClick={() => attendance && handleDayClick(day)}
+                  style={{ cursor: attendance ? 'pointer' : 'default' }}
                 >
                   <span className="calendar__day-number">
                     {format(day, 'd')}
@@ -223,28 +250,59 @@ export default function StudentAttendance() {
               <h4>이번 달 요약</h4>
             </CardHeader>
             <CardBody>
-              <div className="flex items-center justify-around text-center">
-                <div>
-                  <div className="text-3xl font-bold text-primary">{attendanceRate}%</div>
-                  <div className="text-sm text-tertiary">출석률</div>
+              <div className="flex items-center justify-around" style={{ padding: 'var(--spacing-md) 0' }}>
+                {/* 출석률 */}
+                <div className="flex flex-col items-center" style={{ flex: 1 }}>
+                  <div className="text-4xl font-bold text-primary mb-sm">{attendanceRate}%</div>
+                  <div className="text-sm text-tertiary font-medium">출석률</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-success)' }}>
+                
+                {/* 구분선 */}
+                <div style={{ 
+                  width: '1px', 
+                  height: '60px', 
+                  background: 'var(--border-color)',
+                  margin: '0 var(--spacing-lg)'
+                }} />
+                
+                {/* 출석 */}
+                <div className="flex flex-col items-center" style={{ flex: 1 }}>
+                  <div className="text-3xl font-bold mb-sm" style={{ color: 'var(--color-success)' }}>
                     {selectedStats.present}
                   </div>
-                  <div className="text-sm text-tertiary">출석</div>
+                  <div className="text-sm text-tertiary font-medium">출석</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-error)' }}>
+                
+                {/* 구분선 */}
+                <div style={{ 
+                  width: '1px', 
+                  height: '60px', 
+                  background: 'var(--border-color)',
+                  margin: '0 var(--spacing-lg)'
+                }} />
+                
+                {/* 결석 */}
+                <div className="flex flex-col items-center" style={{ flex: 1 }}>
+                  <div className="text-3xl font-bold mb-sm" style={{ color: 'var(--color-error)' }}>
                     {selectedStats.absent}
                   </div>
-                  <div className="text-sm text-tertiary">결석</div>
+                  <div className="text-sm text-tertiary font-medium">결석</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-warning)' }}>
+                
+                {/* 구분선 */}
+                <div style={{ 
+                  width: '1px', 
+                  height: '60px', 
+                  background: 'var(--border-color)',
+                  margin: '0 var(--spacing-lg)'
+                }} />
+                
+                {/* 지각 */}
+                <div className="flex flex-col items-center" style={{ flex: 1 }}>
+                  <div className="text-3xl font-bold mb-sm" style={{ color: 'var(--color-warning)' }}>
                     {selectedStats.late}
                   </div>
-                  <div className="text-sm text-tertiary">지각</div>
+                  <div className="text-sm text-tertiary font-medium">지각</div>
                 </div>
               </div>
             </CardBody>
@@ -287,6 +345,45 @@ export default function StudentAttendance() {
           </Card>
         </div>
       </div>
+
+      {/* Attendance Detail Modal */}
+      <Modal
+        isOpen={detailModalOpen}
+        onClose={() => {
+          setDetailModalOpen(false);
+          setSelectedDay(null);
+        }}
+        title={selectedDay ? format(selectedDay, 'yyyy년 M월 d일 (EEE)', { locale: ko }) : ''}
+      >
+        {selectedDay && (() => {
+          const attendance = getAttendanceForDay(selectedDay);
+          if (!attendance) return null;
+          
+          return (
+            <div className="flex flex-col gap-md">
+              <div className="flex items-center justify-between p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                <div>
+                  <div className="text-sm text-tertiary mb-xs">클래스</div>
+                  <div className="text-lg font-semibold">{attendance.class.name}</div>
+                </div>
+                <AttendanceBadge status={attendance.status} />
+              </div>
+              
+              {attendance.note && (
+                <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                  <div className="text-sm text-tertiary mb-xs">메모</div>
+                  <div className="text-sm">{attendance.note}</div>
+                </div>
+              )}
+              
+              <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                <div className="text-sm text-tertiary mb-xs">출결 상태</div>
+                <div className="text-sm font-medium">{getStatusLabel(attendance.status)}</div>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

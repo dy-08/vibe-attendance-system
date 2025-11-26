@@ -187,7 +187,7 @@ export default function StudentProfile() {
               </Button>
             </div>
           ) : (
-            <div className="mt-lg pt-lg" style={{ borderTop: '1px solid var(--border-color)' }}>
+            <div className="mt-xl">
               <Button 
                 variant="outline" 
                 full

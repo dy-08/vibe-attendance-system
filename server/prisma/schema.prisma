@@ -30,11 +30,13 @@ enum AttendanceStatus {
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
-  password      String
+  password      String?   // 소셜 로그인 사용자는 null 가능
   name          String
   phone         String?
   role          Role      @default(STUDENT)
   avatarUrl     String?   // 프로필 사진
+  provider      String?   // 'local', 'kakao', 'naver'
+  socialId      String?   // 소셜 로그인 ID
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -47,6 +49,7 @@ model User {
   // 선생님인 경우
   teachingClasses Class[]
 
+  @@unique([provider, socialId])
   @@map("users")
 }
 

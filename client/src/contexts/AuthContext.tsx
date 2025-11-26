@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { api } from '../services/api';
+import { api, authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -18,6 +18,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  socialLogin: (provider: 'kakao' | 'naver', code: string, state?: string) => Promise<void>;
 }
 
 interface RegisterData {
@@ -97,8 +98,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const socialLogin = async (provider: 'kakao' | 'naver', code: string, state?: string) => {
+    try {
+      const response = provider === 'kakao' 
+        ? await authAPI.kakaoCallback(code)
+        : await authAPI.naverCallback(code, state || '');
+      
+      const { user, token } = response.data.data;
+      
+      localStorage.setItem('token', token);
+      setUser(user);
+      toast.success(`환영합니다, ${user.name}님!`);
+    } catch (error: any) {
+      const message = error.response?.data?.message || '소셜 로그인에 실패했습니다.';
+      toast.error(message);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser, socialLogin }}>
       {children}
     </AuthContext.Provider>
   );

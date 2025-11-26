@@ -45,12 +45,12 @@
   }
 
   &__menu-btn {
-    display: none;
     @include flex-center;
     width: 40px;
     height: 40px;
     border-radius: var(--radius-md);
     color: var(--text-secondary);
+    transition: all var(--transition-fast);
 
     @include mobile {
       display: flex;
@@ -58,6 +58,7 @@
 
     &:hover {
       background: var(--bg-hover);
+      color: var(--text-primary);
     }
 
     svg {

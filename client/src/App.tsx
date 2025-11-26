@@ -8,6 +8,9 @@ import DashboardLayout from './components/layouts/DashboardLayout';
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import FindEmailPage from './pages/auth/FindEmailPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import SocialCallback from './pages/auth/SocialCallback';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -104,6 +107,30 @@ function App() {
               <RegisterPage />
             </PublicRoute>
           } 
+        />
+        <Route 
+          path="/find-email" 
+          element={
+            <PublicRoute>
+              <FindEmailPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/reset-password" 
+          element={
+            <PublicRoute>
+              <ResetPasswordPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/auth/kakao/callback" 
+          element={<SocialCallback />} 
+        />
+        <Route 
+          path="/auth/naver/callback" 
+          element={<SocialCallback />} 
         />
       </Route>
 
