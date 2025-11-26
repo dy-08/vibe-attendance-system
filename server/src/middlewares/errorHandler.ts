@@ -21,6 +21,7 @@ export const errorHandler = (
 ) => {
   console.error('Error:', err);
   console.error('Error stack:', err.stack);
+  console.error('Error name:', err.name);
   console.error('Request URL:', req.url);
   console.error('Request method:', req.method);
   console.error('Request body:', req.body);
@@ -33,7 +34,9 @@ export const errorHandler = (
   }
 
   // Prisma 에러 처리
-  if (err.name === 'PrismaClientKnownRequestError' || err.name === 'PrismaClientValidationError') {
+  if (err.name === 'PrismaClientKnownRequestError' || 
+      err.name === 'PrismaClientValidationError' || 
+      err.name === 'PrismaClientInitializationError') {
     console.error('Prisma error code:', (err as any).code);
     console.error('Prisma error meta:', (err as any).meta);
     console.error('Prisma error message:', err.message);

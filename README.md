@@ -57,40 +57,73 @@ cd attendance-system
 npm run install:all
 ```
 
-### 2. 데이터베이스 설정
+### 2. 환경 변수 설정
 
-1. [Supabase](https://supabase.com)에 가입하고 새 프로젝트 생성
-2. Settings > Database > Connection string > URI 복사
-3. `server/.env` 파일 생성:
+1. `server` 폴더로 이동:
+   ```bash
+   cd server
+   ```
 
-```env
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
-JWT_SECRET="your-super-secret-jwt-key"
-PORT=4000
-CLIENT_URL="http://localhost:3000"
-```
+2. `.env` 파일 생성:
+   ```bash
+   # Windows (PowerShell)
+   Copy-Item env.example.txt .env
+   
+   # Mac/Linux
+   cp env.example.txt .env
+   ```
 
-### 3. 데이터베이스 마이그레이션
+3. `.env` 파일 수정:
+   - `DATABASE_URL`: Supabase 프로젝트의 Database URL 복사
+   - `JWT_SECRET`: 랜덤 문자열 생성 (예: `openssl rand -base64 32`)
+   - `PORT`: 4000 (기본값)
+   - `CLIENT_URL`: http://localhost:3000 (기본값)
+
+### 3. Prisma 클라이언트 생성
 
 ```bash
+cd server
+npm run db:generate
+```
+
+### 4. 데이터베이스 마이그레이션
+
+```bash
+cd server
 npm run db:push
 ```
 
-### 4. 샘플 데이터 생성 (선택)
+### 5. 샘플 데이터 생성 (선택)
 
 ```bash
+cd server
 npm run db:seed
 ```
 
-### 5. 개발 서버 실행
+### 6. 개발 서버 실행
 
+**터미널 1 (백엔드):**
 ```bash
+cd server
+npm run dev
+```
+
+**터미널 2 (프론트엔드):**
+```bash
+cd client
 npm run dev
 ```
 
 - 프론트엔드: http://localhost:3000
 - 백엔드: http://localhost:4000
-- Prisma Studio: `npm run db:studio`
+- Prisma Studio: `cd server && npm run db:studio`
+
+### 7. 테스트 계정
+
+시드 데이터 실행 후 사용 가능:
+- 관리자: `admin@academy.com` / `password123`
+- 선생님: `teacher1@academy.com` / `password123`
+- 학생: `student1@academy.com` / `password123`
 
 ## 📁 프로젝트 구조
 
