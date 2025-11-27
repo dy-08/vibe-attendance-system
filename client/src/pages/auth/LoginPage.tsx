@@ -97,38 +97,66 @@ export default function LoginPage() {
 
   const [kakaoEnabled, setKakaoEnabled] = useState(true);
   const [naverEnabled, setNaverEnabled] = useState(true);
+  const [checkingSocial, setCheckingSocial] = useState(true);
 
   useEffect(() => {
-    // 소셜 로그인 설정 확인
-    authAPI.getKakaoUrl().catch(() => setKakaoEnabled(false));
-    authAPI.getNaverUrl().catch(() => setNaverEnabled(false));
+    // 소셜 로그인 설정 확인 (비동기로 확인하되, 실패해도 버튼은 활성화 상태 유지)
+    const checkSocialLogin = async () => {
+      try {
+        await authAPI.getKakaoUrl();
+        setKakaoEnabled(true);
+      } catch (error: any) {
+        // 네트워크 에러가 아닌 경우에만 비활성화 (500 에러 = 설정 안됨)
+        if (error.response?.status === 500) {
+          setKakaoEnabled(false);
+        }
+        // 네트워크 에러나 다른 에러는 버튼 활성화 상태 유지
+      }
+
+      try {
+        await authAPI.getNaverUrl();
+        setNaverEnabled(true);
+      } catch (error: any) {
+        // 네트워크 에러가 아닌 경우에만 비활성화 (500 에러 = 설정 안됨)
+        if (error.response?.status === 500) {
+          setNaverEnabled(false);
+        }
+        // 네트워크 에러나 다른 에러는 버튼 활성화 상태 유지
+      }
+
+      setCheckingSocial(false);
+    };
+
+    checkSocialLogin();
   }, []);
 
   const handleKakaoLogin = async () => {
-    if (!kakaoEnabled) {
-      toast.error('카카오 로그인이 설정되지 않았습니다.\n카카오 개발자 센터에서 앱을 등록하고 환경변수를 설정해주세요.');
-      return;
-    }
     try {
       const response = await authAPI.getKakaoUrl();
       window.location.href = response.data.data.url;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || '카카오 로그인을 시작할 수 없습니다.');
-      setKakaoEnabled(false);
+      const errorMessage = error.response?.data?.message || '카카오 로그인을 시작할 수 없습니다.';
+      toast.error(errorMessage);
+      
+      // 설정이 안 된 경우에만 비활성화
+      if (error.response?.status === 500) {
+        setKakaoEnabled(false);
+      }
     }
   };
 
   const handleNaverLogin = async () => {
-    if (!naverEnabled) {
-      toast.error('네이버 로그인이 설정되지 않았습니다.\n네이버 개발자 센터에서 애플리케이션을 등록하고 환경변수를 설정해주세요.');
-      return;
-    }
     try {
       const response = await authAPI.getNaverUrl();
       window.location.href = response.data.data.url;
     } catch (error: any) {
-      toast.error(error.response?.data?.message || '네이버 로그인을 시작할 수 없습니다.');
-      setNaverEnabled(false);
+      const errorMessage = error.response?.data?.message || '네이버 로그인을 시작할 수 없습니다.';
+      toast.error(errorMessage);
+      
+      // 설정이 안 된 경우에만 비활성화
+      if (error.response?.status === 500) {
+        setNaverEnabled(false);
+      }
     }
   };
 
@@ -185,26 +213,26 @@ export default function LoginPage() {
           variant="outline"
           full
           onClick={handleKakaoLogin}
-          disabled={!kakaoEnabled}
+          disabled={!kakaoEnabled || checkingSocial}
           style={{
             background: kakaoEnabled ? '#FEE500' : '#f4f4f5',
             borderColor: kakaoEnabled ? '#FEE500' : '#e4e4e7',
             color: kakaoEnabled ? '#000000' : '#71717a',
             fontWeight: 'var(--font-weight-medium)',
             opacity: kakaoEnabled ? 1 : 0.6,
-            cursor: kakaoEnabled ? 'pointer' : 'not-allowed',
+            cursor: kakaoEnabled && !checkingSocial ? 'pointer' : 'not-allowed',
           }}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginRight: '8px' }}>
             <path d="M9 0C4.03 0 0 3.42 0 7.64c0 2.49 1.62 4.69 4.08 6.07L2.7 18l4.71-2.47c.63.09 1.27.14 1.92.14 4.97 0 9-3.42 9-7.64C18 3.42 13.97 0 9 0z" fill="currentColor"/>
           </svg>
-          카카오로 로그인
+          {checkingSocial ? '확인 중...' : '카카오로 로그인'}
         </Button>
         <Button
           variant="outline"
           full
           onClick={handleNaverLogin}
-          disabled={!naverEnabled}
+          disabled={!naverEnabled || checkingSocial}
           style={{
             background: naverEnabled ? '#03C75A' : '#f4f4f5',
             borderColor: naverEnabled ? '#03C75A' : '#e4e4e7',
@@ -212,13 +240,13 @@ export default function LoginPage() {
             fontWeight: 'var(--font-weight-medium)',
             marginTop: 'var(--spacing-sm)',
             opacity: naverEnabled ? 1 : 0.6,
-            cursor: naverEnabled ? 'pointer' : 'not-allowed',
+            cursor: naverEnabled && !checkingSocial ? 'pointer' : 'not-allowed',
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px', flexShrink: 0 }}>
             <path d="M13.859 12L7.07 0H0v24h7.07V12l6.789 12h7.07L13.859 12z" fill="white"/>
           </svg>
-          네이버로 로그인
+          {checkingSocial ? '확인 중...' : '네이버로 로그인'}
         </Button>
       </div>
 
