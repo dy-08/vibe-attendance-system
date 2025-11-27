@@ -18,7 +18,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
-  socialLogin: (provider: 'kakao' | 'naver', code: string, state?: string) => Promise<void>;
+  socialLogin: (provider: 'kakao' | 'naver', code: string, state?: string) => Promise<{ user: User; token: string }>;
 }
 
 interface RegisterData {

@@ -8,6 +8,7 @@ interface CardProps {
   flat?: boolean;
   accent?: 'default' | 'success' | 'warning' | 'error';
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 export function Card({ 
@@ -16,7 +17,8 @@ export function Card({
   hover = false, 
   flat = false,
   accent,
-  onClick 
+  onClick,
+  style
 }: CardProps) {
   const classes = clsx(
     'card',
@@ -28,7 +30,7 @@ export function Card({
   );
 
   return (
-    <div className={classes} onClick={onClick}>
+    <div className={classes} onClick={onClick} style={style}>
       {children}
     </div>
   );

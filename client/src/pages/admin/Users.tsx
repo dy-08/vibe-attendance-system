@@ -135,7 +135,7 @@ export default function AdminUsers() {
       if (userDetailData.studentClass && userDetailData.studentClass.length > 0) {
         setEditData(prev => ({
           ...prev,
-          classIds: userDetailData.studentClass.map(sc => sc.class.id),
+          classIds: userDetailData.studentClass.map((sc: { class: { id: string } }) => sc.class.id),
         }));
       }
     } catch (error) {
@@ -410,7 +410,7 @@ export default function AdminUsers() {
                   <>
                     {userDetail?.studentClass && userDetail.studentClass.length > 0 && (
                       <div className="text-sm text-tertiary mb-sm">
-                        현재 클래스: {userDetail.studentClass.map(sc => sc.class.name).join(', ')}
+                        현재 클래스: {userDetail.studentClass.map((sc: { class: { name: string } }) => sc.class.name).join(', ')}
                       </div>
                     )}
                     <div className="flex flex-col gap-xs" style={{ maxHeight: '300px', overflowY: 'auto' }}>
