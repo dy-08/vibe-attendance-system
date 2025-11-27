@@ -120,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('token', token);
       setUser(user);
       toast.success(`환영합니다, ${user.name}님!`);
+      
+      // 사용자 정보를 반환하여 SocialCallback에서 직접 사용할 수 있도록 함
+      return { user, token };
     } catch (error: any) {
       const message = error.response?.data?.message || '소셜 로그인에 실패했습니다.';
       // 비활성화된 계정인 경우 SocialCallback에서 로그인 페이지로 리다이렉트하고 모달 표시하므로 toast는 표시하지 않음
