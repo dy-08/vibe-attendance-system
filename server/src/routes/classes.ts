@@ -12,17 +12,19 @@ router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const { role } = req.user!;
 
-    let where: any = { isActive: true };
+    let where: any = {};
 
-    // 학생: 자신이 속한 클래스만
+    // 학생: 자신이 속한 클래스만 (활성화된 것만)
     if (role === 'STUDENT') {
+      where.isActive = true;
       where.members = { some: { studentId: req.user!.id } };
     }
-    // 선생님: 자신이 담당하는 클래스만
+    // 선생님: 자신이 담당하는 클래스만 (활성화된 것만)
     else if (role === 'TEACHER') {
+      where.isActive = true;
       where.teacherId = req.user!.id;
     }
-    // 관리자: 모든 클래스
+    // 관리자: 모든 클래스 (활성화/비활성화 모두)
 
     const classes = await prisma.class.findMany({
       where,

@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { userAPI, uploadAPI, authAPI } from '../../services/api';
 import { Card, CardHeader, CardBody } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Avatar from '../../components/common/Avatar';
-import Modal from '../../components/common/Modal';
+import Modal, { ConfirmModal } from '../../components/common/Modal';
 import toast from 'react-hot-toast';
 
 const CameraIcon = () => (
@@ -16,10 +17,13 @@ const CameraIcon = () => (
 );
 
 export default function StudentProfile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -113,6 +117,21 @@ export default function StudentProfile() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await userAPI.deleteMyAccount();
+      toast.success('계정이 삭제되었습니다.');
+      logout();
+      navigate('/login');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '계정 삭제에 실패했습니다.');
+    } finally {
+      setDeleting(false);
+      setDeleteModal(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -187,13 +206,24 @@ export default function StudentProfile() {
               </Button>
             </div>
           ) : (
-            <div className="mt-xl">
+            <div className="mt-xl flex flex-col gap-sm">
               <Button 
                 variant="outline" 
                 full
                 onClick={() => setPasswordModal(true)}
               >
                 비밀번호 변경
+              </Button>
+              <Button 
+                variant="outline" 
+                full
+                onClick={() => setDeleteModal(true)}
+                style={{
+                  color: 'var(--color-error)',
+                  borderColor: 'var(--color-error)'
+                }}
+              >
+                계정 탈퇴
               </Button>
             </div>
           )}
@@ -238,6 +268,19 @@ export default function StudentProfile() {
           />
         </div>
       </Modal>
+
+      {/* Delete Account Confirm Modal */}
+      <ConfirmModal
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+        title="계정 탈퇴"
+        message="정말로 계정을 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없으며, 모든 데이터가 삭제됩니다."
+        type="danger"
+        confirmText="탈퇴"
+        cancelText="취소"
+        loading={deleting}
+      />
     </div>
   );
 }

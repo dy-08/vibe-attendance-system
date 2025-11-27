@@ -29,6 +29,9 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsers from './pages/admin/Users';
 import AdminClasses from './pages/admin/Classes';
 
+// Guest Pages
+import WaitingPage from './pages/guest/WaitingPage';
+
 // Protected Route Component
 function ProtectedRoute({ 
   children, 
@@ -57,7 +60,8 @@ function ProtectedRoute({
     const redirectPath = 
       user.role === 'STUDENT' ? '/student' :
       user.role === 'TEACHER' ? '/teacher' :
-      '/admin';
+      user.role === 'SUPER_ADMIN' ? '/admin' :
+      '/guest'; // GUEST는 대기 페이지로
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -80,7 +84,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     const redirectPath = 
       user.role === 'STUDENT' ? '/student' :
       user.role === 'TEACHER' ? '/teacher' :
-      '/admin';
+      user.role === 'SUPER_ADMIN' ? '/admin' :
+      '/guest'; // GUEST는 대기 페이지로
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -176,6 +181,18 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="classes" element={<AdminClasses />} />
+      </Route>
+
+      {/* Guest Routes */}
+      <Route 
+        path="/guest" 
+        element={
+          <ProtectedRoute allowedRoles={['GUEST']}>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<WaitingPage />} />
       </Route>
 
       {/* Root redirect */}

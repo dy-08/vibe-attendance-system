@@ -127,8 +127,23 @@ router.get('/:id', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest,
 router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const { id } = req.params;
-    const { name, phone, role, isActive } = req.body;
+    const { name, phone, role, isActive, classIds } = req.body;
 
+    // 기존 사용자 정보 조회
+    const existingUser = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        studentClass: {
+          select: { classId: true },
+        },
+      },
+    });
+
+    if (!existingUser) {
+      throw new AppError('사용자를 찾을 수 없습니다.', 404);
+    }
+
+    // 사용자 정보 업데이트
     const user = await prisma.user.update({
       where: { id },
       data: {
@@ -147,6 +162,76 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next)
         isActive: true,
       },
     });
+
+    // 역할이 STUDENT이고 classIds가 제공된 경우 클래스 할당 처리
+    if (role === 'STUDENT' && Array.isArray(classIds)) {
+      const existingClassIds = existingUser.studentClass.map(cm => cm.classId);
+      const newClassIds = classIds.filter((cid: string) => cid && cid.trim() !== '');
+      
+      // 제거할 클래스 (기존에 있지만 새 목록에 없는 것)
+      const toRemove = existingClassIds.filter(cid => !newClassIds.includes(cid));
+      // 추가할 클래스 (새 목록에 있지만 기존에 없는 것)
+      const toAdd = newClassIds.filter(cid => !existingClassIds.includes(cid));
+
+      // 클래스 제거
+      if (toRemove.length > 0) {
+        await prisma.classMember.deleteMany({
+          where: {
+            studentId: id,
+            classId: { in: toRemove },
+          },
+        });
+
+        // 좌석도 함께 해제
+        await prisma.seat.updateMany({
+          where: {
+            classId: { in: toRemove },
+            studentId: id,
+          },
+          data: { studentId: null },
+        });
+      }
+
+      // 클래스 추가
+      for (const classId of toAdd) {
+        // 클래스 존재 확인
+        const classExists = await prisma.class.findUnique({
+          where: { id: classId },
+        });
+
+        if (!classExists) {
+          console.warn(`Class ${classId} not found, skipping...`);
+          continue;
+        }
+
+        // 이미 등록되어 있는지 확인
+        const existing = await prisma.classMember.findUnique({
+          where: {
+            studentId_classId: { studentId: id, classId },
+          },
+        });
+
+        if (!existing) {
+          await prisma.classMember.create({
+            data: {
+              studentId: id,
+              classId,
+            },
+          });
+        }
+      }
+    } else if (role !== 'STUDENT' && existingUser.role === 'STUDENT') {
+      // 역할이 STUDENT에서 다른 역할로 변경된 경우 모든 클래스에서 제거
+      await prisma.classMember.deleteMany({
+        where: { studentId: id },
+      });
+
+      // 좌석도 함께 해제
+      await prisma.seat.updateMany({
+        where: { studentId: id },
+        data: { studentId: null },
+      });
+    }
 
     res.json({
       success: true,
@@ -184,6 +269,25 @@ router.put('/profile/me', async (req: AuthRequest, res, next) => {
       success: true,
       message: '프로필이 수정되었습니다.',
       data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 본인 계정 탈퇴
+router.delete('/profile/me', async (req: AuthRequest, res, next) => {
+  try {
+    const userId = req.user!.id;
+
+    // 사용자 삭제
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    res.json({
+      success: true,
+      message: '계정이 삭제되었습니다.',
     });
   } catch (error) {
     next(error);

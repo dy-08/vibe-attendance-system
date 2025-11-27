@@ -310,5 +310,95 @@ router.get('/student/:studentId', authorize('SUPER_ADMIN', 'TEACHER'), async (re
   }
 });
 
+// 클래스별 특정 월 학생 출석률 (서류 작성용)
+router.get('/class/:classId/monthly', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest, res, next) => {
+  try {
+    const { classId } = req.params;
+    const { month } = req.query; // yyyy-MM 형식
+
+    if (!month || typeof month !== 'string') {
+      throw new AppError('월 정보가 필요합니다. (yyyy-MM 형식)', 400);
+    }
+
+    const targetDate = new Date(month + '-01');
+    if (isNaN(targetDate.getTime())) {
+      throw new AppError('올바른 월 형식이 아닙니다. (yyyy-MM)', 400);
+    }
+
+    const startDate = startOfMonth(targetDate);
+    const endDate = endOfMonth(targetDate);
+
+    // 클래스 멤버 가져오기
+    const members = await prisma.classMember.findMany({
+      where: { classId },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // 각 학생의 해당 월 출석률 계산
+    const studentRates = await Promise.all(
+      members.map(async (member) => {
+        const attendances = await prisma.attendance.findMany({
+          where: {
+            classId,
+            studentId: member.studentId,
+            date: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        });
+
+        const total = attendances.length;
+        const present = attendances.filter(
+          (a) => a.status === 'PRESENT' || a.status === 'LATE'
+        ).length;
+        const absent = attendances.filter((a) => a.status === 'ABSENT').length;
+        const late = attendances.filter((a) => a.status === 'LATE').length;
+        const sickLeave = attendances.filter((a) => a.status === 'SICK_LEAVE').length;
+        const vacation = attendances.filter((a) => a.status === 'VACATION').length;
+        const earlyLeave = attendances.filter((a) => a.status === 'EARLY_LEAVE').length;
+
+        return {
+          student: member.student,
+          stats: {
+            total,
+            present,
+            absent,
+            late,
+            sickLeave,
+            vacation,
+            earlyLeave,
+            rate: total > 0 ? Math.round((present / total) * 100) : 0,
+          },
+        };
+      })
+    );
+
+    // 이름순 정렬
+    studentRates.sort((a, b) => a.student.name.localeCompare(b.student.name));
+
+    res.json({
+      success: true,
+      data: {
+        month,
+        monthLabel: format(targetDate, 'yyyy년 M월'),
+        students: studentRates,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 

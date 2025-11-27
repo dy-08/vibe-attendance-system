@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { userAPI, statsAPI } from '../../services/api';
+import { userAPI, statsAPI, classAPI } from '../../services/api';
 import { Card, CardHeader, CardBody } from '../../components/common/Card';
-import { SearchInput } from '../../components/common/Input';
+import { SearchInput, Select } from '../../components/common/Input';
 import Avatar from '../../components/common/Avatar';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import ProgressRing from '../../components/common/ProgressRing';
 import EmptyState from '../../components/common/EmptyState';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import toast from 'react-hot-toast';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 interface Student {
   id: string;
@@ -23,16 +25,45 @@ interface StudentStats {
   monthlyStats: { month: string; label: string; rate: number }[];
 }
 
+interface MonthlyAttendanceRate {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  avatarUrl?: string;
+  total: number;
+  present: number;
+  absent: number;
+  rate: number;
+}
+
+interface ClassData {
+  id: string;
+  name: string;
+}
+
 export default function TeacherStudents() {
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassData[]>([]);
   const [search, setSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<StudentStats | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'monthly'>('list');
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [monthlyRates, setMonthlyRates] = useState<MonthlyAttendanceRate[]>([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   useEffect(() => {
     fetchStudents();
+    fetchClasses();
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'monthly' && selectedClass && selectedMonth) {
+      fetchMonthlyRates();
+    }
+  }, [viewMode, selectedClass, selectedMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchStudents = async () => {
     try {
@@ -42,6 +73,47 @@ export default function TeacherStudents() {
       console.error('Failed to fetch students:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchClasses = async () => {
+    try {
+      const response = await classAPI.getAll();
+      const classData = response.data.data;
+      setClasses(classData);
+      if (classData.length > 0) {
+        setSelectedClass(classData[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to fetch classes:', error);
+    }
+  };
+
+  const fetchMonthlyRates = async () => {
+    if (!selectedClass || !selectedMonth) return;
+    
+    setMonthlyLoading(true);
+    try {
+      const response = await statsAPI.getClassMonthlyRates(selectedClass, selectedMonth);
+      const data = response.data.data;
+      
+      const rates: MonthlyAttendanceRate[] = data.students.map((item: any) => ({
+        studentId: item.student.id,
+        studentName: item.student.name,
+        studentEmail: item.student.email || '',
+        avatarUrl: item.student.avatarUrl,
+        total: item.stats.total,
+        present: item.stats.present,
+        absent: item.stats.absent,
+        rate: item.stats.rate,
+      }));
+      
+      setMonthlyRates(rates);
+    } catch (error) {
+      console.error('Failed to fetch monthly rates:', error);
+      toast.error('월별 출석률을 불러오는데 실패했습니다.');
+    } finally {
+      setMonthlyLoading(false);
     }
   };
 
@@ -75,25 +147,45 @@ export default function TeacherStudents() {
         <div className="page-header__top">
           <div>
             <h2 className="page-header__title">학생 관리</h2>
-            <p className="page-header__subtitle">총 {students.length}명</p>
+            <p className="page-header__subtitle">
+              {viewMode === 'list' ? `총 ${students.length}명` : '월별 출석률 조회'}
+            </p>
+          </div>
+          <div className="flex gap-sm">
+            <Button
+              variant={viewMode === 'list' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              학생 목록
+            </Button>
+            <Button
+              variant={viewMode === 'monthly' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('monthly')}
+            >
+              월별 출석률
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Search */}
-      <Card className="mb-lg">
-        <CardBody>
-          <div style={{ maxWidth: '400px' }}>
-            <SearchInput
-              placeholder="이름 또는 이메일로 검색..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </CardBody>
-      </Card>
+      {viewMode === 'list' ? (
+        <>
+          {/* Search */}
+          <Card className="mb-lg">
+            <CardBody>
+              <div style={{ maxWidth: '400px' }}>
+                <SearchInput
+                  placeholder="이름 또는 이메일로 검색..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </CardBody>
+          </Card>
 
-      {/* Student Grid */}
+          {/* Student Grid */}
       {filteredStudents.length === 0 ? (
         <EmptyState
           title="학생이 없습니다"
@@ -121,6 +213,117 @@ export default function TeacherStudents() {
             </Card>
           ))}
         </div>
+      )}
+        </>
+      ) : (
+        <>
+          {/* Monthly Rates Filters */}
+          <Card className="mb-lg">
+            <CardBody>
+              <div className="flex flex-wrap items-end gap-md">
+                <div style={{ minWidth: '200px' }}>
+                  <Select
+                    label="클래스"
+                    options={classes.map((c) => ({ value: c.id, label: c.name }))}
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">월</label>
+                  <input
+                    type="month"
+                    className="input"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Monthly Rates Table */}
+          {monthlyLoading ? (
+            <Card>
+              <CardBody className="text-center p-xl">
+                <div className="spinner" />
+              </CardBody>
+            </Card>
+          ) : monthlyRates.length === 0 ? (
+            <Card>
+              <CardBody className="text-center p-xl">
+                <p className="text-tertiary">출석률 데이터가 없습니다.</p>
+              </CardBody>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <h4>{format(new Date(selectedMonth + '-01'), 'yyyy년 M월')} 출석률</h4>
+                <span className="text-sm text-tertiary">{monthlyRates.length}명</span>
+              </CardHeader>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'center' }}>번호</th>
+                      <th>학생</th>
+                      <th style={{ textAlign: 'center' }}>총 수업</th>
+                      <th style={{ textAlign: 'center' }}>출석</th>
+                      <th style={{ textAlign: 'center' }}>결석</th>
+                      <th style={{ textAlign: 'center' }}>출석률</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyRates.map((rate, index) => (
+                      <tr key={rate.studentId}>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="text-sm text-tertiary">{index + 1}</span>
+                        </td>
+                        <td>
+                          <div className="user-cell">
+                            <Avatar src={rate.avatarUrl} name={rate.studentName} size="sm" />
+                            <div className="user-cell__info">
+                              <span className="user-cell__name">{rate.studentName}</span>
+                              <span className="user-cell__sub">{rate.studentEmail}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="text-sm">{rate.total}회</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="text-sm" style={{ color: 'var(--color-success)' }}>
+                            {rate.present}회
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="text-sm" style={{ color: 'var(--color-error)' }}>
+                            {rate.absent}회
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{
+                              color:
+                                rate.rate >= 80
+                                  ? 'var(--color-success)'
+                                  : rate.rate >= 60
+                                  ? 'var(--color-warning)'
+                                  : 'var(--color-error)',
+                            }}
+                          >
+                            {rate.rate}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Student Detail Modal */}

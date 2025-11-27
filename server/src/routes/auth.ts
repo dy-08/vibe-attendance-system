@@ -93,7 +93,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     if (!user.isActive) {
-      throw new AppError('비활성화된 계정입니다. 관리자에게 문의하세요.', 401);
+      throw new AppError('접근 권한이 없습니다. 계정이 비활성화되었습니다. 관리자에게 문의하세요.', 403);
     }
 
     // 소셜 로그인 사용자는 비밀번호가 없음
@@ -150,6 +150,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res, next) => {
         role: true,
         phone: true,
         avatarUrl: true,
+        isActive: true,
         createdAt: true,
       },
     });
@@ -158,9 +159,17 @@ router.get('/me', authenticate, async (req: AuthRequest, res, next) => {
       throw new AppError('사용자를 찾을 수 없습니다.', 404);
     }
 
+    // 비활성화된 계정 체크
+    if (!user.isActive) {
+      throw new AppError('접근 권한이 없습니다. 계정이 비활성화되었습니다. 관리자에게 문의하세요.', 403);
+    }
+
+    // isActive는 응답에서 제외
+    const { isActive, ...userData } = user;
+
     res.json({
       success: true,
-      data: user,
+      data: userData,
     });
   } catch (error) {
     next(error);
@@ -227,6 +236,10 @@ router.get('/kakao', (req, res) => {
     });
   }
 
+  // 리다이렉트 URI 로깅 (디버깅용)
+  console.log('Kakao auth URL - redirectUri:', redirectUri);
+  console.log('Kakao auth URL - CLIENT_URL:', CLIENT_URL);
+
   const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code`;
   
   res.json({
@@ -247,6 +260,10 @@ router.post('/kakao/callback', async (req, res, next) => {
       throw new AppError('인증 코드가 없습니다.', 400);
     }
 
+    // 리다이렉트 URI 로깅 (디버깅용)
+    console.log('Kakao callback - redirectUri:', redirectUri);
+    console.log('Kakao callback - CLIENT_URL:', CLIENT_URL);
+
     // 카카오 토큰 요청
     const tokenResponse = await fetch('https://kauth.kakao.com/oauth/token', {
       method: 'POST',
@@ -263,8 +280,23 @@ router.post('/kakao/callback', async (req, res, next) => {
 
     const tokenData = await tokenResponse.json();
 
-    if (!tokenData.access_token) {
-      throw new AppError('카카오 인증에 실패했습니다.', 401);
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error('Kakao token error:', tokenData);
+      console.error('Kakao redirectUri used:', redirectUri);
+      
+      // 더 명확한 에러 메시지
+      let errorMessage = '카카오 인증에 실패했습니다.';
+      if (tokenData.error === 'invalid_grant') {
+        errorMessage = '인증 코드가 만료되었거나 이미 사용되었습니다. 다시 로그인해주세요.';
+      } else if (tokenData.error === 'invalid_client') {
+        errorMessage = '카카오 앱 설정이 올바르지 않습니다. 관리자에게 문의하세요.';
+      } else if (tokenData.error_description) {
+        errorMessage = tokenData.error_description;
+      } else if (tokenData.error) {
+        errorMessage = `카카오 인증 오류: ${tokenData.error}`;
+      }
+      
+      throw new AppError(errorMessage, 401);
     }
 
     // 카카오 사용자 정보 요청
@@ -296,6 +328,11 @@ router.post('/kakao/callback', async (req, res, next) => {
     });
 
     if (user) {
+      // 비활성화된 계정 체크
+      if (!user.isActive) {
+        throw new AppError('접근 권한이 없습니다. 계정이 비활성화되었습니다. 관리자에게 문의하세요.', 403);
+      }
+
       // 기존 사용자 업데이트 (소셜 로그인 정보 추가/업데이트)
       user = await prisma.user.update({
         where: { id: user.id },
@@ -324,7 +361,7 @@ router.post('/kakao/callback', async (req, res, next) => {
           provider: 'kakao',
           socialId,
           password: null,
-          role: 'STUDENT',
+          role: 'GUEST',
         },
         select: {
           id: true,
@@ -368,7 +405,14 @@ router.get('/naver', (req, res) => {
     });
   }
 
+  // 리다이렉트 URI 로깅 (디버깅용)
+  console.log('Naver auth URL - redirectUri:', redirectUri);
+  console.log('Naver auth URL - CLIENT_URL:', CLIENT_URL);
+  console.log('Naver auth URL - CLIENT_ID:', NAVER_CLIENT_ID ? '설정됨' : '설정 안됨');
+
   const naverAuthUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${NAVER_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+  
+  console.log('Naver auth URL generated:', naverAuthUrl);
   
   res.json({
     success: true,
@@ -389,6 +433,10 @@ router.post('/naver/callback', async (req, res, next) => {
       throw new AppError('인증 코드가 없습니다.', 400);
     }
 
+    // 리다이렉트 URI 로깅 (디버깅용)
+    console.log('Naver callback - redirectUri:', redirectUri);
+    console.log('Naver callback - CLIENT_URL:', CLIENT_URL);
+
     // 네이버 토큰 요청
     const tokenResponse = await fetch('https://nid.naver.com/oauth2.0/token', {
       method: 'POST',
@@ -407,8 +455,30 @@ router.post('/naver/callback', async (req, res, next) => {
 
     const tokenData = await tokenResponse.json();
 
-    if (!tokenData.access_token) {
-      throw new AppError('네이버 인증에 실패했습니다.', 401);
+    console.log('Naver token response status:', tokenResponse.status);
+    console.log('Naver token response:', JSON.stringify(tokenData, null, 2));
+
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error('Naver token error:', tokenData);
+      console.error('Naver redirectUri used:', redirectUri);
+      console.error('Naver CLIENT_ID:', NAVER_CLIENT_ID ? '설정됨' : '설정 안됨');
+      console.error('Naver CLIENT_SECRET:', NAVER_CLIENT_SECRET ? '설정됨' : '설정 안됨');
+      
+      // 더 명확한 에러 메시지
+      let errorMessage = '네이버 인증에 실패했습니다.';
+      if (tokenData.error === 'invalid_grant') {
+        errorMessage = '인증 코드가 만료되었거나 이미 사용되었습니다. 다시 로그인해주세요.';
+      } else if (tokenData.error === 'invalid_client') {
+        errorMessage = '네이버 앱 설정이 올바르지 않습니다. 관리자에게 문의하세요.';
+      } else if (tokenData.error === 'invalid_request') {
+        errorMessage = '요청이 올바르지 않습니다. 리다이렉트 URI를 확인해주세요.';
+      } else if (tokenData.error_description) {
+        errorMessage = tokenData.error_description;
+      } else if (tokenData.error) {
+        errorMessage = `네이버 인증 오류: ${tokenData.error}`;
+      }
+      
+      throw new AppError(errorMessage, 401);
     }
 
     // 네이버 사용자 정보 요청
@@ -419,9 +489,23 @@ router.post('/naver/callback', async (req, res, next) => {
     });
 
     const naverUserData = await userResponse.json();
+
+    console.log('Naver user info response status:', userResponse.status);
+    console.log('Naver user info response:', JSON.stringify(naverUserData, null, 2));
+
+    if (!userResponse.ok || naverUserData.resultcode !== '00') {
+      console.error('Naver user info error:', naverUserData);
+      console.error('Naver user info status:', userResponse.status);
+      throw new AppError(
+        naverUserData.message || '네이버 사용자 정보를 가져올 수 없습니다.',
+        401
+      );
+    }
+
     const naverUser = naverUserData.response;
 
     if (!naverUser || !naverUser.id) {
+      console.error('Naver user data:', naverUserData);
       throw new AppError('네이버 사용자 정보를 가져올 수 없습니다.', 401);
     }
 
@@ -441,6 +525,11 @@ router.post('/naver/callback', async (req, res, next) => {
     });
 
     if (user) {
+      // 비활성화된 계정 체크
+      if (!user.isActive) {
+        throw new AppError('접근 권한이 없습니다. 계정이 비활성화되었습니다. 관리자에게 문의하세요.', 403);
+      }
+
       // 기존 사용자 업데이트 (소셜 로그인 정보 추가/업데이트)
       user = await prisma.user.update({
         where: { id: user.id },
@@ -469,7 +558,7 @@ router.post('/naver/callback', async (req, res, next) => {
           provider: 'naver',
           socialId,
           password: null,
-          role: 'STUDENT',
+          role: 'GUEST',
         },
         select: {
           id: true,

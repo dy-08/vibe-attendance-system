@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Input } from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import Modal from '../../components/common/Modal';
 import { authAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -42,6 +43,20 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [inactiveModalOpen, setInactiveModalOpen] = useState(false);
+
+  // URL 파라미터에서 inactive 확인 (소셜 로그인에서 리다이렉트된 경우)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('inactive') === 'true') {
+      // 약간의 지연을 두어 페이지 렌더링 후 모달 표시
+      setTimeout(() => {
+        setInactiveModalOpen(true);
+      }, 100);
+      // URL에서 파라미터 제거
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -69,8 +84,12 @@ export default function LoginPage() {
     try {
       await login(email, password);
       // Navigation is handled by App.tsx based on user role
-    } catch {
-      // Error is handled by AuthContext
+    } catch (error: any) {
+      // 비활성화된 계정인 경우 모달 표시
+      if (error.response?.status === 403 && error.response?.data?.message?.includes('비활성화')) {
+        setInactiveModalOpen(true);
+      }
+      // 다른 에러는 AuthContext에서 toast로 처리됨
     } finally {
       setLoading(false);
     }
@@ -214,7 +233,7 @@ export default function LoginPage() {
           </Link>
         </div>
         <div>
-          계정이 없으신가요? <Link to="/register">회원가입</Link>
+        계정이 없으신가요? <Link to="/register">회원가입</Link>
         </div>
       </div>
 
@@ -235,6 +254,66 @@ export default function LoginPage() {
           <span style={{ color: 'var(--text-tertiary)' }}>비밀번호: password123</span>
         </div>
       </div>
+
+      {/* 비활성화된 계정 알림 모달 */}
+      <Modal
+        isOpen={inactiveModalOpen}
+        onClose={() => setInactiveModalOpen(false)}
+        title="접근 권한 없음"
+        size="sm"
+        footer={
+          <Button variant="primary" onClick={() => setInactiveModalOpen(false)} full>
+            확인
+          </Button>
+        }
+      >
+        <div style={{ textAlign: 'center', padding: 'var(--spacing-md) 0' }}>
+          <div style={{ 
+            width: '64px', 
+            height: '64px', 
+            margin: '0 auto var(--spacing-lg)',
+            borderRadius: '50%',
+            background: 'var(--color-error-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="32" 
+              height="32" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="var(--color-error)" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <h3 style={{ 
+            fontSize: 'var(--font-size-lg)', 
+            fontWeight: 'var(--font-weight-semibold)',
+            marginBottom: 'var(--spacing-sm)',
+            color: 'var(--text-primary)'
+          }}>
+            계정이 비활성화되었습니다
+          </h3>
+          <p style={{ 
+            fontSize: 'var(--font-size-sm)', 
+            color: 'var(--text-secondary)',
+            lineHeight: '1.6',
+            marginBottom: 'var(--spacing-md)'
+          }}>
+            접근 권한이 없습니다.<br />
+            계정이 비활성화되어 로그인할 수 없습니다.<br />
+            관리자에게 문의하세요.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

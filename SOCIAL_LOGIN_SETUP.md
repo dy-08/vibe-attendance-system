@@ -74,3 +74,4 @@ NAVER_CLIENT_SECRET="your-client-secret"
 - 환경변수가 설정되지 않으면 소셜 로그인 버튼이 비활성화됩니다.
 - 프로덕션 배포 시에는 실제 도메인으로 Redirect URI를 변경해야 합니다.
 
+

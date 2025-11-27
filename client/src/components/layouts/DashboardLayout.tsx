@@ -129,6 +129,10 @@ const getNavItems = (role: string) => {
     { path: '/admin/classes', icon: <GridIcon />, label: '클래스 관리' },
   ];
 
+  const guestNav = [
+    { path: '/guest', icon: <HomeIcon />, label: '대기 중', end: true },
+  ];
+
   switch (role) {
     case 'STUDENT':
       return studentNav;
@@ -136,6 +140,8 @@ const getNavItems = (role: string) => {
       return teacherNav;
     case 'SUPER_ADMIN':
       return adminNav;
+    case 'GUEST':
+      return guestNav;
     default:
       return [];
   }
@@ -146,6 +152,7 @@ const getRoleName = (role: string) => {
     case 'STUDENT': return '학생';
     case 'TEACHER': return '선생님';
     case 'SUPER_ADMIN': return '관리자';
+    case 'GUEST': return '손님';
     default: return '';
   }
 };

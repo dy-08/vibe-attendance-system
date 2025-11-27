@@ -65,6 +65,7 @@ export function RoleBadge({
   role: string;
 }) {
   const roleMap: Record<string, { label: string; className: string }> = {
+    GUEST: { label: '손님', className: 'role-badge role-badge--guest' },
     STUDENT: { label: '학생', className: 'role-badge role-badge--student' },
     TEACHER: { label: '선생님', className: 'role-badge role-badge--teacher' },
     SUPER_ADMIN: { label: '관리자', className: 'role-badge role-badge--admin' },

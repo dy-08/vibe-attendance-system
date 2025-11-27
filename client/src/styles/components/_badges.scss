@@ -137,6 +137,10 @@
 .role-badge {
   @extend .badge;
 
+  &--guest {
+    @extend .badge--default;
+  }
+
   &--student {
     @extend .badge--primary;
   }

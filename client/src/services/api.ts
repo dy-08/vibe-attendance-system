@@ -27,10 +27,30 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const url = error.config?.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || 
+                          url.includes('/auth/kakao/callback') || 
+                          url.includes('/auth/naver/callback');
+    
     if (error.response?.status === 401) {
-      // 토큰 만료 시 로그아웃
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      // 토큰 만료 시 로그아웃 (로그인 API는 제외)
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    } else if (error.response?.status === 403) {
+      // 접근 권한 없음 (비활성화된 계정 등)
+      // 로그인 관련 API는 각 컴포넌트에서 처리하므로 인터셉터에서는 처리하지 않음
+      if (!isAuthEndpoint) {
+        const message = error.response?.data?.message;
+        if (message?.includes('비활성화')) {
+          // 비활성화된 계정인 경우 로그아웃하고 로그인 페이지로
+          localStorage.removeItem('token');
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login?inactive=true';
+          }
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -71,6 +91,8 @@ export const userAPI = {
     api.put('/users/profile/me', data),
   delete: (id: string) => 
     api.delete(`/users/${id}`),
+  deleteMyAccount: () => 
+    api.delete('/users/profile/me'),
 };
 
 export const classAPI = {
@@ -114,6 +136,8 @@ export const statsAPI = {
     api.get('/stats/overview'),
   getStudentStats: (studentId: string, months?: number) =>
     api.get(`/stats/student/${studentId}`, { params: { months } }),
+  getClassMonthlyRates: (classId: string, month: string) =>
+    api.get(`/stats/class/${classId}/monthly`, { params: { month } }),
 };
 
 export const uploadAPI = {

@@ -16,7 +16,7 @@ const PlusIcon = () => (
 );
 
 const UsersIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
     <circle cx="9" cy="7" r="4"></circle>
     <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -24,12 +24,22 @@ const UsersIcon = () => (
   </svg>
 );
 
-const GridIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="7" height="7"></rect>
-    <rect x="14" y="3" width="7" height="7"></rect>
-    <rect x="14" y="14" width="7" height="7"></rect>
-    <rect x="3" y="14" width="7" height="7"></rect>
+const CalendarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="16" y1="2" x2="16" y2="6"></line>
+    <line x1="8" y1="2" x2="8" y2="6"></line>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+  </svg>
+);
+
+const SeatIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="9" y1="3" x2="9" y2="21"></line>
+    <line x1="15" y1="3" x2="15" y2="21"></line>
+    <line x1="3" y1="9" x2="21" y2="9"></line>
+    <line x1="3" y1="15" x2="21" y2="15"></line>
   </svg>
 );
 
@@ -117,38 +127,87 @@ export default function TeacherClasses() {
           action={{ label: '클래스 만들기', onClick: () => setModalOpen(true) }}
         />
       ) : (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {classes.map((cls) => (
-            <Link key={cls.id} to={`/teacher/classes/${cls.id}`}>
-              <Card hover className="h-full">
-                <CardBody>
-                  <div className="flex items-start justify-between mb-md">
+            <Link key={cls.id} to={`/teacher/classes/${cls.id}`} style={{ textDecoration: 'none' }}>
+              <Card hover className="h-full" style={{ 
+                transition: 'all var(--transition-normal)',
+                border: '1px solid var(--border-color)',
+              }}>
+                <CardBody style={{ padding: 'var(--spacing-lg)' }}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-lg">
                     <div 
-                      className="p-sm rounded-md"
-                      style={{ background: 'var(--color-primary-100)' }}
+                      className="p-md rounded-lg flex items-center justify-center"
+                      style={{ 
+                        background: 'linear-gradient(135deg, var(--color-primary-100), var(--color-primary-50))',
+                        width: '48px',
+                        height: '48px'
+                      }}
                     >
-                      <GridIcon />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary-600)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                      </svg>
                     </div>
                     <span 
                       className={`badge badge--${cls.isActive ? 'success' : 'default'}`}
+                      style={{ fontSize: 'var(--font-size-xs)' }}
                     >
                       {cls.isActive ? '활성' : '비활성'}
                     </span>
                   </div>
-                  <h4 className="mb-xs">{cls.name}</h4>
-                  <p className="text-sm text-tertiary mb-md">
+
+                  {/* Title & Description */}
+                  <h3 className="mb-sm" style={{ 
+                    fontSize: 'var(--font-size-lg)', 
+                    fontWeight: 'var(--font-weight-semibold)',
+                    color: 'var(--text-primary)',
+                    lineHeight: '1.4'
+                  }}>
+                    {cls.name}
+                  </h3>
+                  <p className="text-sm text-tertiary mb-lg" style={{ 
+                    minHeight: '40px',
+                    lineHeight: '1.5'
+                  }}>
                     {cls.description || '설명 없음'}
                   </p>
-                  <div className="text-xs text-tertiary mb-md">
-                    📅 {cls.schedule || '일정 미정'}
-                  </div>
-                  <div className="flex items-center justify-between pt-md" style={{ borderTop: '1px solid var(--border-color)' }}>
-                    <div className="flex items-center gap-xs text-sm">
-                      <UsersIcon />
-                      <span>{cls._count.members} / {cls.maxStudents}</span>
+
+                  {/* Schedule */}
+                  {cls.schedule && (
+                    <div className="flex items-center gap-xs mb-md" style={{ 
+                      padding: 'var(--spacing-sm)',
+                      background: 'var(--bg-tertiary)',
+                      borderRadius: 'var(--radius-sm)'
+                    }}>
+                      <CalendarIcon />
+                      <span className="text-sm text-secondary">{cls.schedule}</span>
                     </div>
-                    <div className="text-sm text-tertiary">
-                      좌석 {cls._count.seats}개
+                  )}
+
+                  {/* Footer Stats */}
+                  <div className="flex items-center justify-between pt-lg" style={{ 
+                    borderTop: '1px solid var(--border-color)',
+                    marginTop: 'auto'
+                  }}>
+                    <div className="flex items-center gap-xs">
+                      <div style={{ 
+                        color: 'var(--color-primary-500)',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <UsersIcon />
+                      </div>
+                      <span className="text-sm font-medium">
+                        {cls._count.members} / {cls.maxStudents}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-xs text-sm text-tertiary">
+                      <SeatIcon />
+                      <span>좌석 {cls._count.seats}개</span>
                     </div>
                   </div>
                 </CardBody>

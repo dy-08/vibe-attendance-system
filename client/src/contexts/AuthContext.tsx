@@ -6,7 +6,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'STUDENT' | 'TEACHER' | 'SUPER_ADMIN';
+  role: 'GUEST' | 'STUDENT' | 'TEACHER' | 'SUPER_ADMIN';
   phone?: string;
   avatarUrl?: string;
 }
@@ -49,8 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get('/auth/me');
       setUser(response.data.data);
-    } catch {
-      localStorage.removeItem('token');
+    } catch (error: any) {
+      const message = error.response?.data?.message;
+      if (error.response?.status === 403 && message?.includes('비활성화')) {
+        // 비활성화된 계정인 경우 명확한 메시지 표시
+        toast.error(message || '접근 권한이 없습니다. 계정이 비활성화되었습니다. 관리자에게 문의하세요.');
+        localStorage.removeItem('token');
+        setUser(null);
+      } else {
+        localStorage.removeItem('token');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(`환영합니다, ${user.name}님!`);
     } catch (error: any) {
       const message = error.response?.data?.message || '로그인에 실패했습니다.';
-      toast.error(message);
+      // 비활성화된 계정인 경우 LoginPage에서 모달로 표시하므로 toast는 표시하지 않음
+      if (!(error.response?.status === 403 && message.includes('비활성화'))) {
+        toast.error(message);
+      }
       throw error;
     }
   };
@@ -111,7 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(`환영합니다, ${user.name}님!`);
     } catch (error: any) {
       const message = error.response?.data?.message || '소셜 로그인에 실패했습니다.';
-      toast.error(message);
+      // 비활성화된 계정인 경우 SocialCallback에서 로그인 페이지로 리다이렉트하고 모달 표시하므로 toast는 표시하지 않음
+      if (!(error.response?.status === 403 && message.includes('비활성화'))) {
+        toast.error(message);
+      }
       throw error;
     }
   };
