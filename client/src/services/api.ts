@@ -2,6 +2,18 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// 개발 환경에서 API URL 확인
+if (import.meta.env.DEV) {
+  console.log('API URL:', API_URL);
+  console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+}
+
+// 프로덕션 환경에서도 API URL 확인 (디버깅용)
+if (import.meta.env.PROD) {
+  console.log('Production API URL:', API_URL);
+  console.log('VITE_API_URL from env:', import.meta.env.VITE_API_URL);
+}
+
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -31,6 +43,21 @@ api.interceptors.response.use(
     const isAuthEndpoint = url.includes('/auth/login') || 
                           url.includes('/auth/kakao/callback') || 
                           url.includes('/auth/naver/callback');
+    
+    // 네트워크 에러 또는 API URL 문제
+    if (!error.response) {
+      console.error('Network error or API not reachable:', {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullURL: error.config?.baseURL + error.config?.url,
+        message: error.message,
+      });
+      
+      // 프로덕션 환경에서 API URL이 설정되지 않은 경우
+      if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+        console.error('VITE_API_URL is not set in production! Please set it in Netlify environment variables.');
+      }
+    }
     
     if (error.response?.status === 401) {
       // 토큰 만료 시 로그아웃 (로그인 API는 제외)
