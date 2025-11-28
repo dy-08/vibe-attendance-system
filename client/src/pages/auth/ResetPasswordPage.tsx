@@ -26,6 +26,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; name?: string }>({});
 
   const validate = () => {
@@ -58,13 +59,18 @@ export default function ResetPasswordPage() {
     try {
       const response = await authAPI.resetPassword(email.trim(), name.trim());
       setSuccess(true);
+      setEmailSent(response.data.emailSent || false);
       
-      // 개발 환경에서만 임시 비밀번호 표시
+      // 임시 비밀번호가 있으면 표시 (개발 환경 또는 이메일 미설정 시)
       if (response.data.tempPassword) {
         setTempPassword(response.data.tempPassword);
-        toast.success('임시 비밀번호가 생성되었습니다.');
+        if (response.data.emailSent) {
+          toast.success('임시 비밀번호가 이메일로 전송되었습니다.');
+        } else {
+          toast.success('임시 비밀번호가 생성되었습니다.');
+        }
       } else {
-        toast.success('비밀번호 재설정 링크가 이메일로 전송되었습니다.');
+        toast.success('임시 비밀번호가 이메일로 전송되었습니다.');
       }
     } catch (error: any) {
       const message = error.response?.data?.message || '비밀번호 재설정에 실패했습니다.';
@@ -89,8 +95,22 @@ export default function ResetPasswordPage() {
             {tempPassword ? (
               <div style={{ marginBottom: 'var(--spacing-md)' }}>
                 <p style={{ color: 'var(--text-tertiary)', marginBottom: 'var(--spacing-sm)' }}>
-                  임시 비밀번호가 생성되었습니다.
+                  {emailSent 
+                    ? '임시 비밀번호가 이메일로 전송되었습니다.' 
+                    : '임시 비밀번호가 생성되었습니다.'}
                 </p>
+                {emailSent && (
+                  <div style={{ 
+                    padding: 'var(--spacing-sm)', 
+                    background: 'var(--success-bg)', 
+                    borderRadius: 'var(--radius-sm)', 
+                    marginBottom: 'var(--spacing-md)',
+                    color: 'var(--success)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}>
+                    ✅ 이메일을 확인해주세요!
+                  </div>
+                )}
                 <div style={{ 
                   padding: 'var(--spacing-md)', 
                   background: 'var(--bg-secondary)', 
@@ -110,7 +130,7 @@ export default function ResetPasswordPage() {
               </div>
             ) : (
               <p style={{ color: 'var(--text-tertiary)' }}>
-                비밀번호 재설정 링크가 이메일로 전송되었습니다.<br />
+                임시 비밀번호가 이메일로 전송되었습니다.<br />
                 이메일을 확인해주세요.
               </p>
             )}

@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middlewares/errorHandler.js';
 import { authenticate, AuthRequest } from '../middlewares/auth.js';
 import { z } from 'zod';
+import { sendTempPasswordEmail, isEmailConfigured } from '../lib/email.js';
 
 const router = Router();
 
@@ -672,6 +673,8 @@ router.post('/reset-password', async (req, res, next) => {
       },
       select: {
         id: true,
+        email: true,
+        name: true,
         provider: true,
       },
     });
@@ -681,7 +684,7 @@ router.post('/reset-password', async (req, res, next) => {
       // 보안을 위해 존재 여부를 알리지 않음
       return res.json({
         success: true,
-        message: '비밀번호 재설정 링크가 이메일로 전송되었습니다.',
+        message: '해당 정보와 일치하는 계정이 있다면 임시 비밀번호가 이메일로 전송됩니다.',
       });
     }
 
@@ -695,15 +698,23 @@ router.post('/reset-password', async (req, res, next) => {
       data: { password: hashedPassword },
     });
 
-    // TODO: 실제 이메일 발송 기능 추가 필요
-    // 여기서는 임시로 응답만 반환
-    // 실제 운영 환경에서는 이메일 서비스(SendGrid, AWS SES 등)를 사용해야 함
+    // 이메일 발송
+    let emailSent = false;
+    if (isEmailConfigured()) {
+      emailSent = await sendTempPasswordEmail(user.email, user.name, tempPassword);
+    } else {
+      console.log('⚠️ 이메일 설정이 되어있지 않습니다. 환경변수를 확인해주세요.');
+      console.log('📧 임시 비밀번호 (개발용):', tempPassword);
+    }
 
     res.json({
       success: true,
-      message: '임시 비밀번호가 이메일로 전송되었습니다.',
-      // 개발 환경에서만 임시 비밀번호 반환 (실제 운영에서는 제거)
-      ...(process.env.NODE_ENV === 'development' && { tempPassword }),
+      message: emailSent 
+        ? '임시 비밀번호가 이메일로 전송되었습니다. 메일함을 확인해주세요.'
+        : '임시 비밀번호가 생성되었습니다.',
+      // 개발 환경이거나 이메일 미설정 시 임시 비밀번호 반환
+      ...((process.env.NODE_ENV === 'development' || !isEmailConfigured()) && { tempPassword }),
+      emailSent,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
