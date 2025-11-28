@@ -1,258 +1,308 @@
-# 학원 출결 관리 시스템 📚
+## Vibe Attendance System - 학원 출결 관리 웹 애플리케이션
 
-학원의 출결을 효율적으로 관리하는 풀스택 웹 애플리케이션입니다.
+- `Project` : Vibe Attendance System - 학원의 출결을 효율적으로 관리하는 풀스택 웹 애플리케이션
+- `Project duration` : 2024.11.24 ~ 2024.11.28 (5일)
+- `Link` : [배포 사이트](http://academy-attendance.netlify.app)
+- `Stack` : React, TypeScript, Vite, SASS, Node.js, Express, Prisma, PostgreSQL
+- `Service/API` : Supabase (PostgreSQL), Kakao / Naver OAuth, Gmail SMTP
+- `Troubleshooting` : 트러블 슈팅 문서 (추가 예정)
 
-## ✨ 주요 기능
+### 설명
 
-### 👨‍🎓 학생
-- 내 출결 현황 확인 (월별 달력 뷰)
-- 출석률 시각화 (차트)
-- 80% 미만 출석률 경고 알림
-- 프로필 관리 (사진, 연락처)
+- 5일 동안 **기획 → 설계 → 개발 → 배포**까지 한 번에 진행한 학원 출결 관리 웹 애플리케이션입니다.
+- 학생·선생님·관리자 **3가지 역할(Role)** 에 따라 출결 조회, 출결 체크, 통계 대시보드 등 서로 다른 기능을 제공합니다.
+- **React + TypeScript** 기반으로 프론트엔드를 구성하고, **Node.js + Express + Prisma + PostgreSQL(Supabase)** 를 사용해 백엔드를 구현했습니다.
+- **카카오/네이버 소셜 로그인, 이메일 기반 비밀번호 찾기, JWT 인증**을 포함한 실사용 가능한 출결 관리 플로우를 목표로 했습니다.
+- 실제 배포 환경(Render + Netlify + Supabase)을 구성하며, **기획과 배포를 동시에 진행**한 프로젝트입니다.
 
-### 👩‍🏫 선생님
-- 클래스별 좌석 배치도 (출결 상태별 색상 표시)
-- 실시간 출결 체크
-- 학생별/클래스별 출석률 통계
-- 일괄 출결 처리
+### 팀 소개
 
-### 👔 슈퍼관리자
-- 전체 사용자(학생/선생님) 관리
-- 전체 클래스 관리
-- 전체 출결 통계 대시보드
-- 출석률 경고 학생 모니터링
+| 이름   | 역할                     | GitHub                                    |
+| ------ | ------------------------ | ----------------------------------------- |
+| 권희나 | 기획 · UI 설계 · FE · BE | [KwonHeena](https://github.com/KwonHeena) |
+| 권영호 | 기획 · UI 설계 · FE · BE | [dy-08](https://github.com/dy-08)         |
 
-### 공통 기능
-- 🌓 다크/라이트 모드
-- 📱 반응형 디자인
-- 🖼️ 프로필 사진 업로드
-- 🔐 JWT 기반 인증
-- 🔗 카카오톡/네이버 간편 로그인 (선택사항)
+### 테스트 계정
 
-## 🛠️ 기술 스택
+| 역할   | 이메일                                              | 비밀번호    |
+| ------ | --------------------------------------------------- | ----------- |
+| 관리자 | [admin@academy.com](mailto:admin@academy.com)       | password123 |
+| 선생님 | [teacher1@academy.com](mailto:teacher1@academy.com) | password123 |
+| 학생   | [student1@academy.com](mailto:student1@academy.com) | password123 |
 
-### Frontend
-- React 18 + TypeScript
-- Vite (빌드 도구)
-- SASS (스타일링)
-- React Router (라우팅)
-- Recharts (차트)
-- React Hot Toast (알림)
-
-### Backend
-- Node.js + Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL (Supabase)
-- JWT (인증)
-- Multer (파일 업로드)
-- Zod (검증)
-
-## 🚀 시작하기
-
-### 1. 의존성 설치
+### 프로젝트 실행 방법
 
 ```bash
-cd attendance-system
-npm run install:all
-```
+# 0. 사전 준비
+- Node.js v18 이상
+- Git
 
-### 2. 환경 변수 설정
+# 1. 프로젝트 클론
+git clone https://github.com/dy-08/vibe-attendance-system.git
+cd vibe-attendance-system
 
-1. `server` 폴더로 이동:
-   ```bash
-   cd server
-   ```
-
-2. `.env` 파일 생성:
-   ```bash
-   # Windows (PowerShell)
-   Copy-Item env.example.txt .env
-   
-   # Mac/Linux
-   cp env.example.txt .env
-   ```
-
-3. `.env` 파일 수정:
-   - `DATABASE_URL`: Supabase 프로젝트의 Database URL 복사
-   - `JWT_SECRET`: 랜덤 문자열 생성 (예: `openssl rand -base64 32`)
-   - `PORT`: 4000 (기본값)
-   - `CLIENT_URL`: http://localhost:3000 (기본값)
-
-### 3. Prisma 클라이언트 생성
-
-```bash
+# 2. 서버 설정
 cd server
+
+# 패키지 설치 (package-lock.json 기준 정확한 버전)
+npm ci
+
+# 환경변수 파일 생성
+
+# Windows
+copy env.example.txt .env
+
+# Mac/Linux
+cp env.example.txt .env
+
+# .env 파일 수정 후
 npm run db:generate
-```
-
-### 4. 데이터베이스 마이그레이션
-
-```bash
-cd server
 npm run db:push
-```
+npm run db:seed # 테스트 데이터 (선택)
 
-### 5. 샘플 데이터 생성 (선택)
+# 3. 클라이언트 설정
+cd ../client
 
-```bash
-cd server
-npm run db:seed
-```
+# 패키지 설치
+npm ci
 
-### 6. 개발 서버 실행
-
-**터미널 1 (백엔드):**
-```bash
+# 4. 로컬 실행
+터미널 1 (서버):
 cd server
 npm run dev
-```
-
-**터미널 2 (프론트엔드):**
-```bash
+터미널 2 (클라이언트):
 cd client
 npm run dev
-```
 
+# 5. 접속
 - 프론트엔드: http://localhost:3000
-- 백엔드: http://localhost:4000
-- Prisma Studio: `cd server && npm run db:studio`
-
-### 7. 테스트 계정
-
-시드 데이터 실행 후 사용 가능:
-- 관리자: `admin@academy.com` / `password123`
-- 선생님: `teacher1@academy.com` / `password123`
-- 학생: `student1@academy.com` / `password123`
-
-## 📁 프로젝트 구조
-
-```
-attendance-system/
-├── client/                 # React 프론트엔드
-│   ├── src/
-│   │   ├── components/     # 재사용 컴포넌트
-│   │   │   ├── common/     # 공통 컴포넌트 (Button, Modal, etc.)
-│   │   │   ├── layouts/    # 레이아웃 컴포넌트
-│   │   │   └── ...
-│   │   ├── pages/          # 페이지 컴포넌트
-│   │   │   ├── auth/       # 로그인, 회원가입
-│   │   │   ├── student/    # 학생 페이지
-│   │   │   ├── teacher/    # 선생님 페이지
-│   │   │   └── admin/      # 관리자 페이지
-│   │   ├── contexts/       # React Context (Auth, Theme)
-│   │   ├── services/       # API 호출
-│   │   ├── styles/         # SASS 스타일
-│   │   │   ├── base/       # 리셋, 타이포그래피
-│   │   │   ├── components/ # 컴포넌트 스타일
-│   │   │   ├── pages/      # 페이지 스타일
-│   │   │   └── utils/      # 변수, 믹스인
-│   │   └── utils/          # 유틸리티 함수
-│   └── ...
-├── server/                 # Express 백엔드
-│   ├── src/
-│   │   ├── routes/         # API 라우트
-│   │   ├── controllers/    # 컨트롤러
-│   │   ├── middlewares/    # 미들웨어 (auth, error)
-│   │   └── lib/            # Prisma 클라이언트
-│   └── prisma/
-│       ├── schema.prisma   # DB 스키마
-│       └── seed.ts         # 시드 데이터
-└── ...
+- 백엔드 API: http://localhost:4000
 ```
 
-## 🔑 테스트 계정
+### 기획
 
-시드 데이터 실행 후 사용 가능:
+플로우 / UI/UX / 데이터 구조는 아래 정리했습니다.
 
-| 역할 | 이메일 | 비밀번호 |
-|------|--------|----------|
-| 관리자 | admin@academy.com | password123 |
-| 선생님 | teacher1@academy.com | password123 |
-| 학생 | student1@academy.com | password123 |
+### 시스템 워크플로우 개요
 
-## 🎨 디자인 시스템
+- **사용자(학생/선생님/관리자)** 는 프론트엔드(React)에서 로그인/회원가입 및 대시보드, 출결 화면에 접근합니다.
+- 프론트엔드는 **JWT 기반 인증 미들웨어**를 거쳐 **Express REST API**와 통신합니다.
+- 백엔드는 **Supabase PostgreSQL** 과 연동하여 사용자, 클래스, 출결, 좌석 데이터를 관리합니다.
+- 이메일 관련 기능(비밀번호 찾기 등)은 **Gmail SMTP + Nodemailer** 로 처리합니다.
+- 소셜 로그인의 경우 **카카오 / 네이버 OAuth**를 통해 인증 후 GUEST → 관리자의 승인으로 STUDENT/TEACHER 권한을 부여합니다.
 
-### 색상
-- **Primary**: 파스텔 민트/티파니 (#14b8a6)
-- **Secondary**: 파스텔 라벤더 (#a855f7)
-- **Accent**: 파스텔 피치 (#f97316)
+### 사용자 흐름 개요
 
-### 출결 상태 색상
-- 🟢 출석: 파스텔 그린
-- 🔴 결석: 파스텔 핑크
-- 🟡 지각: 파스텔 옐로우
-- 🔵 병가: 파스텔 블루
-- 🟣 휴가: 파스텔 라벤더
+1. **회원가입**
+   - 일반 회원가입(이메일/비밀번호) 또는 카카오/네이버 소셜 로그인
+   - 최초 가입 시 `GUEST` 권한으로 등록
+2. **권한 승인**
+   - 관리자가 GUEST 사용자를 확인 후 `STUDENT` 또는 `TEACHER` 권한 부여
+3. **역할별 사용**
+   - 학생: 내 출결 달력/통계 조회, 프로필 관리
+   - 선생님: 좌석 배치도 기반 출결 체크, 클래스별 출석률 관리
+   - 관리자: 전체 사용자/클래스/출결 통계 대시보드, 경고 대상 모니터링
 
-### 폰트
-- Pretendard (한글)
-- System fonts (fallback)
+### 데이터베이스 구조 개요
 
-## 📝 API 엔드포인트
+주요 엔티티는 다음과 같습니다.
 
-### Auth
-- `POST /api/auth/register` - 회원가입
-- `POST /api/auth/login` - 로그인
-- `GET /api/auth/me` - 현재 사용자 정보
-- `PUT /api/auth/password` - 비밀번호 변경
-- `GET /api/auth/kakao` - 카카오 로그인 URL
-- `POST /api/auth/kakao/callback` - 카카오 로그인 콜백
-- `GET /api/auth/naver` - 네이버 로그인 URL
-- `POST /api/auth/naver/callback` - 네이버 로그인 콜백
+- `User` : 사용자(학생/선생님/관리자/GUEST)
+- `Class` : 수업(반) 정보
+- `ClassMember` : 수업에 속한 학생 정보(JOIN 테이블)
+- `Seat` : 클래스별 좌석 배치 및 학생 배정
+- `Attendance` : 일자별 출결 기록
+- `Notification` : 출석률 경고, 안내 메시지 등 발송 로그
 
-### Users
-- `GET /api/users` - 사용자 목록
-- `GET /api/users/:id` - 사용자 상세
-- `PUT /api/users/:id` - 사용자 수정
-- `DELETE /api/users/:id` - 사용자 삭제
+> 실제 스키마 정의는 `server/prisma/schema.prisma`를 참고합니다.
 
-### Classes
-- `GET /api/classes` - 클래스 목록
-- `GET /api/classes/:id` - 클래스 상세
-- `POST /api/classes` - 클래스 생성
-- `PUT /api/classes/:id` - 클래스 수정
-- `POST /api/classes/:id/seats` - 좌석 생성
+### 기술 스택
 
-### Attendance
-- `GET /api/attendance` - 출결 조회
-- `GET /api/attendance/my` - 내 출결 (학생)
-- `POST /api/attendance` - 출결 기록
-- `POST /api/attendance/bulk` - 일괄 출결
+#### Frontend
 
-### Stats
-- `GET /api/stats/overview` - 전체 통계 (관리자)
-- `GET /api/stats/class/:id` - 클래스 통계
-- `GET /api/stats/student/:id` - 학생 통계
+| 기술         | 버전 | 설명            |
+| ------------ | ---- | --------------- |
+| React        | 18.2 | UI 라이브러리   |
+| Vite         | 5.0  | 빌드 도구       |
+| TypeScript   | 5.2  | 정적 타입       |
+| SASS         | 1.69 | 스타일링        |
+| React Router | 6.20 | 라우팅          |
+| Axios        | 1.6  | HTTP 클라이언트 |
+| Recharts     | 2.10 | 차트            |
 
-## 🚀 배포
+#### Backend
 
-### Vercel (Frontend)
+| 기술       | 버전 | 설명          |
+| ---------- | ---- | ------------- |
+| Node.js    | 20.x | 런타임        |
+| Express    | 4.18 | 웹 프레임워크 |
+| TypeScript | 5.2  | 정적 타입     |
+| Prisma     | 5.6  | ORM           |
+| PostgreSQL | -    | 데이터베이스  |
+| JWT        | 9.0  | 인증          |
+| Nodemailer | 7.0  | 이메일 발송   |
+
+### 주요 기능
+
+#### 학생(STUDENT)
+
+- 월별 달력 UI로 **내 출결 현황 확인**
+- **출석률 차트(Recharts)** 로 출석률 시각화
+- 출석률 **80% 미만 시 경고 배지/메시지 표시**
+- 프로필 정보 및 아바타 이미지 관리
+
+#### 선생님(TEACHER)
+
+- 클래스별 **좌석 배치도** UI (출결 상태별 색상 구분)
+- 실시간 출결 체크 (출석/지각/조퇴/결석 등)
+- 학생별/클래스별 출석률 통계 조회
+- 특정 날짜에 대해 **일괄 출결 처리** 기능
+
+#### 관리자(SUPER_ADMIN 등)
+
+- 전체 사용자 CRUD 및 권한 관리
+- 전체 클래스 관리 (개설/수정/비활성화)
+- 전체 출결 통계 대시보드
+- 출석률 경고 대상 학생 모니터링 및 알림 발송
+
+#### 공통
+
+- 다크/라이트 모드 지원
+- 반응형 디자인(PC/모바일)
+- 카카오/네이버 소셜 로그인
+- 이메일 기반 비밀번호 초기화/재설정
+
+#### 환경변수 설정
+
 ```bash
-cd client
-vercel
+# 데이터베이스
+DATABASE_URL="postgresql://..."
+
+# 인증
+JWT_SECRET="your-secret-key"
+
+# 서버
+PORT=4000
+CLIENT_URL="http://localhost:3000"
+
+# 소셜 로그인 (선택)
+KAKAO_CLIENT_ID=""
+NAVER_CLIENT_ID=""
+NAVER_CLIENT_SECRET=""
+
+# 이메일 (선택)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_USER=""
+SMTP_PASS=""
+SMTP_FROM=""
 ```
 
-### Railway (Backend)
-```bash
-cd server
-railway up
+### 사용 라이브러리
+
+#### Frontend
+
+| 라이브러리       | 용도          |
+| ---------------- | ------------- |
+| react            | UI 컴포넌트   |
+| react-router-dom | 페이지 라우팅 |
+| axios            | API 통신      |
+| recharts         | 출석률 차트   |
+| react-hot-toast  | 알림 메시지   |
+| date-fns         | 날짜 포맷팅   |
+| clsx             | 조건부 클래스 |
+| sass             | CSS 전처리기  |
+
+#### Backend
+
+| 라이브러리     | 용도                     |
+| -------------- | ------------------------ |
+| express        | 웹 서버                  |
+| @prisma/client | 데이터베이스 ORM         |
+| jsonwebtoken   | JWT 인증                 |
+| bcryptjs       | 비밀번호 해시            |
+| nodemailer     | 이메일 발송              |
+| multer         | 파일 업로드(프로필 사진) |
+| zod            | 입력값 검증              |
+| cors           | CORS 처리                |
+
+### API 엔드포인트
+
+### 인증
+
+| Method | Endpoint                 | 설명            |
+| ------ | ------------------------ | --------------- |
+| POST   | /api/auth/register       | 회원가입        |
+| POST   | /api/auth/login          | 로그인          |
+| GET    | /api/auth/me             | 내 정보 조회    |
+| PUT    | /api/auth/password       | 비밀번호 변경   |
+| POST   | /api/auth/reset-password | 비밀번호 재설정 |
+| GET    | /api/auth/kakao          | 카카오 로그인   |
+| GET    | /api/auth/naver          | 네이버 로그인   |
+
+### 사용자
+
+| Method | Endpoint       | 설명        |
+| ------ | -------------- | ----------- |
+| GET    | /api/users     | 사용자 목록 |
+| GET    | /api/users/:id | 사용자 상세 |
+| PUT    | /api/users/:id | 사용자 수정 |
+| DELETE | /api/users/:id | 사용자 삭제 |
+
+### 클래스
+
+| Method | Endpoint               | 설명        |
+| ------ | ---------------------- | ----------- |
+| GET    | /api/classes           | 클래스 목록 |
+| POST   | /api/classes           | 클래스 생성 |
+| GET    | /api/classes/:id       | 클래스 상세 |
+| PUT    | /api/classes/:id       | 클래스 수정 |
+| POST   | /api/classes/:id/seats | 좌석 설정   |
+
+### 출결
+
+| Method | Endpoint             | 설명           |
+| ------ | -------------------- | -------------- |
+| GET    | /api/attendance      | 출결 조회      |
+| GET    | /api/attendance/my   | 내 출결(학생)  |
+| POST   | /api/attendance      | 출결 기록      |
+| POST   | /api/attendance/bulk | 일괄 출결 처리 |
+
+### 통계
+
+| Method | Endpoint               | 설명        |
+| ------ | ---------------------- | ----------- |
+| GET    | /api/stats/overview    | 전체 통계   |
+| GET    | /api/stats/class/:id   | 클래스 통계 |
+| GET    | /api/stats/student/:id | 학생 통계   |
+
+### 프로젝트 구조
+
 ```
 
-## 🔗 소셜 로그인 설정
+vibe-attendance-system/
+├── client/ # React 프론트엔드
+│ ├── src/
+│ │ ├── components/ # 재사용 컴포넌트
+│ │ ├── pages/ # 페이지 컴포넌트
+│ │ ├── contexts/ # React Context
+│ │ ├── services/ # API 호출 레이어
+│ │ └── styles/ # SASS 스타일
+│ └── package.json
+├── server/ # Express 백엔드
+│ ├── src/
+│ │ ├── routes/ # API 라우트
+│ │ ├── middlewares/ # 미들웨어
+│ │ └── lib/ # 유틸리티/공용 모듈
+│ ├── prisma/
+│ │ └── schema.prisma # DB 스키마
+│ └── package.json
+└── README.md
 
-카카오톡과 네이버 간편 로그인을 사용하려면 별도 설정이 필요합니다.
+```
 
-자세한 설정 방법은 [SOCIAL_LOGIN_SETUP.md](./SOCIAL_LOGIN_SETUP.md)를 참고하세요.
-
-**요약:**
-1. 카카오/네이버 개발자 센터에서 앱 등록
-2. Redirect URI를 `http://localhost:3000/auth/{provider}/callback`로 설정
-3. `server/.env`에 `KAKAO_CLIENT_ID`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 추가
-
-환경변수가 설정되지 않으면 소셜 로그인 버튼이 비활성화됩니다.
-
-## 📄 라이선스
+### 라이선스
 
 MIT License
 
+Copyright (c) 2025 KWON TEAM
