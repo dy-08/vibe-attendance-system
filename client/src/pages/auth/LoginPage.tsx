@@ -223,8 +223,18 @@ export default function LoginPage() {
             cursor: kakaoEnabled && !checkingSocial ? 'pointer' : 'not-allowed',
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginRight: '8px' }}>
-            <path d="M9 0C4.03 0 0 3.42 0 7.64c0 2.49 1.62 4.69 4.08 6.07L2.7 18l4.71-2.47c.63.09 1.27.14 1.92.14 4.97 0 9-3.42 9-7.64C18 3.42 13.97 0 9 0z" fill="currentColor"/>
+          <svg 
+            width="20" 
+            height="20" 
+            viewBox="0 0 18 18" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ marginRight: '8px', flexShrink: 0 }}
+          >
+            <path 
+              d="M9 0C4.03 0 0 3.42 0 7.64c0 2.49 1.62 4.69 4.08 6.07L2.7 18l4.71-2.47c.63.09 1.27.14 1.92.14 4.97 0 9-3.42 9-7.64C18 3.42 13.97 0 9 0z" 
+              fill={kakaoEnabled ? '#000000' : '#71717a'}
+            />
           </svg>
           {checkingSocial ? '확인 중...' : '카카오로 로그인'}
         </Button>
@@ -243,8 +253,20 @@ export default function LoginPage() {
             cursor: naverEnabled && !checkingSocial ? 'pointer' : 'not-allowed',
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px', flexShrink: 0 }}>
-            <path d="M13.859 12L7.07 0H0v24h7.07V12l6.789 12h7.07L13.859 12z" fill="white"/>
+          <svg 
+            width="20" 
+            height="20" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ marginRight: '8px', flexShrink: 0 }}
+          >
+            <path 
+              d="M16.273 12.845L7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z" 
+              fill={naverEnabled ? '#FFFFFF' : '#71717a'}
+              fillRule="evenodd"
+              clipRule="evenodd"
+            />
           </svg>
           {checkingSocial ? '확인 중...' : '네이버로 로그인'}
         </Button>
