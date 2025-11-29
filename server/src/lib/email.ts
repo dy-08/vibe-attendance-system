@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 // ============================================
 // 이메일 서비스 추상화 (확장 가능한 구조)
@@ -138,16 +139,51 @@ class GmailService implements EmailService {
 }
 
 // ============================================
-// 나중에 추가할 수 있는 다른 서비스들
+// Resend 서비스 (API 기반, 포트 제한 없음)
 // ============================================
 
-// Resend 서비스 (확장 예시)
-// class ResendService implements EmailService {
-//   async sendEmail(options: EmailOptions): Promise<boolean> {
-//     // Resend API 호출
-//     return true;
-//   }
-// }
+class ResendService implements EmailService {
+  private resend: Resend;
+
+  constructor() {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY 환경 변수가 설정되지 않았습니다.');
+    }
+    this.resend = new Resend(apiKey);
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    try {
+      const from = process.env.RESEND_FROM || process.env.SMTP_FROM || 'onboarding@resend.dev';
+      
+      const result = await this.resend.emails.send({
+        from: from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+
+      if (result.error) {
+        console.error('❌ Resend 이메일 전송 실패:', {
+          to: options.to,
+          error: result.error.message || result.error,
+        });
+        return false;
+      }
+
+      console.log(`✅ Resend 이메일 전송 성공: ${options.to} (ID: ${result.data?.id || 'N/A'})`);
+      return true;
+    } catch (error: any) {
+      console.error('❌ Resend 이메일 전송 중 예외 발생:', {
+        to: options.to,
+        error: error?.message || error,
+      });
+      return false;
+    }
+  }
+}
 
 // Brevo 서비스 (확장 예시)
 // class BrevoService implements EmailService {
@@ -163,12 +199,29 @@ class GmailService implements EmailService {
 
 type EmailProvider = 'gmail' | 'resend' | 'brevo';
 
-function createEmailService(provider: EmailProvider = 'gmail'): EmailService {
+function createEmailService(provider?: EmailProvider): EmailService {
+  // 환경 변수로 제공업체 자동 선택
+  if (!provider) {
+    // RESEND_API_KEY가 있으면 Resend 사용 (우선순위)
+    if (process.env.RESEND_API_KEY) {
+      console.log('📧 이메일 서비스: Resend 사용');
+      return new ResendService();
+    }
+    // SMTP 설정이 있으면 Gmail 사용
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      console.log('📧 이메일 서비스: Gmail SMTP 사용');
+      return new GmailService();
+    }
+    // 기본값은 Gmail
+    console.log('📧 이메일 서비스: Gmail SMTP 사용 (기본값)');
+    return new GmailService();
+  }
+
   switch (provider) {
+    case 'resend':
+      return new ResendService();
     case 'gmail':
       return new GmailService();
-    // case 'resend':
-    //   return new ResendService();
     // case 'brevo':
     //   return new BrevoService();
     default:
@@ -176,8 +229,8 @@ function createEmailService(provider: EmailProvider = 'gmail'): EmailService {
   }
 }
 
-// 기본 이메일 서비스 인스턴스
-const emailService = createEmailService('gmail');
+// 기본 이메일 서비스 인스턴스 (환경 변수 기반 자동 선택)
+const emailService = createEmailService();
 
 // ============================================
 // 이메일 템플릿
@@ -275,18 +328,33 @@ export async function sendTempPasswordEmail(
   });
 }
 
-// SMTP 설정 확인
+// 이메일 설정 확인 (Resend 또는 Gmail SMTP)
 export function isEmailConfigured(): boolean {
+  // Resend가 설정되어 있으면 Resend 사용
+  if (process.env.RESEND_API_KEY) {
+    return true;
+  }
+  // Gmail SMTP 설정 확인
   return !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
 // 이메일 연결 테스트
 export async function verifyEmailConnection(): Promise<boolean> {
   if (!isEmailConfigured()) {
-    console.log('⚠️ 이메일 설정이 되어있지 않습니다. SMTP_USER, SMTP_PASS를 확인해주세요.');
+    console.log('⚠️ 이메일 설정이 되어있지 않습니다.');
+    console.log('   - Resend 사용: RESEND_API_KEY 환경 변수를 설정하세요.');
+    console.log('   - Gmail SMTP 사용: SMTP_USER, SMTP_PASS 환경 변수를 설정하세요.');
     return false;
   }
 
+  // Resend 사용 시 (API 기반이므로 연결 테스트 불필요)
+  if (process.env.RESEND_API_KEY) {
+    console.log('✅ Resend 설정 확인됨 (API 기반, 연결 테스트 불필요)');
+    console.log(`   From: ${process.env.RESEND_FROM || process.env.SMTP_FROM || 'onboarding@resend.dev'}`);
+    return true;
+  }
+
+  // Gmail SMTP 연결 테스트
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -296,13 +364,43 @@ export async function verifyEmailConnection(): Promise<boolean> {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // 연결 타임아웃 설정
+      connectionTimeout: 10000,
+      socketTimeout: 10000,
+      greetingTimeout: 10000,
     });
 
+    console.log('🔍 SMTP 서버 연결 테스트 중...');
+    const startTime = Date.now();
+    
     await transporter.verify();
-    console.log('✅ 이메일 서버 연결 성공');
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ 이메일 서버 연결 성공 (${duration}ms)`);
+    console.log(`   호스트: ${process.env.SMTP_HOST || 'smtp.gmail.com'}:${process.env.SMTP_PORT || '587'}`);
     return true;
-  } catch (error) {
-    console.error('❌ 이메일 서버 연결 실패:', error);
+  } catch (error: any) {
+    const errorMessage = error?.message || '알 수 없는 오류';
+    const errorCode = error?.code || 'UNKNOWN';
+    
+    console.error('❌ 이메일 서버 연결 실패:');
+    console.error(`   에러: ${errorMessage}`);
+    console.error(`   코드: ${errorCode}`);
+    
+    // 특정 에러에 대한 상세 안내
+    if (errorCode === 'ETIMEDOUT' || errorCode === 'ECONNRESET' || errorCode === 'ESOCKETTIMEDOUT') {
+      console.error('   ⚠️ 네트워크 타임아웃 - Render.com에서 SMTP 포트 접근이 제한될 수 있습니다.');
+      console.error('   → 해결 방법: Resend 사용을 권장합니다 (포트 제한 없음)');
+      console.error('      - https://resend.com 에서 가입 후 API 키 발급');
+      console.error('      - RESEND_API_KEY 환경 변수 설정');
+    } else if (errorCode === 'EAUTH') {
+      console.error('   ⚠️ 인증 실패 - Gmail 앱 비밀번호를 사용하고 있는지 확인하세요.');
+    } else if (errorCode === 'ECONNREFUSED') {
+      console.error('   ⚠️ 연결 거부 - SMTP 서버에 접근할 수 없습니다.');
+      console.error('   → Render.com의 아웃바운드 연결 정책을 확인하세요.');
+      console.error('   → 또는 Resend 사용을 권장합니다.');
+    }
+    
     return false;
   }
 }

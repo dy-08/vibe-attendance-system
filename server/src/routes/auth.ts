@@ -698,78 +698,66 @@ router.post('/reset-password', async (req, res, next) => {
       data: { password: hashedPassword },
     });
 
-    // 이메일 발송 (비동기로 처리하여 사용자 응답 지연 방지)
+    // 이메일 발송
     let emailSent = false;
     let emailError: string | null = null;
     
     if (isEmailConfigured()) {
-      // 사용자에게 먼저 응답을 보내기 위해 이메일 발송을 비동기로 처리
-      // 최대 3초만 기다리고, 그 이후에는 백그라운드에서 계속 처리
-      const emailPromise = sendTempPasswordEmail(user.email, user.name, tempPassword);
+      console.log(`📧 이메일 발송 시작: ${user.email}`);
       
-      const timeoutPromise = new Promise<{ success: boolean; error?: string }>((resolve) => {
-        setTimeout(() => {
-          console.log('⚠️ 이메일 발송이 3초 내에 완료되지 않아 백그라운드에서 계속 처리합니다.');
-          resolve({ success: false, error: 'timeout' });
-        }, 3000);
-      });
-
       try {
-        const result = await Promise.race([
-          emailPromise.then(success => ({ success, error: success ? undefined : '이메일 전송 실패' })),
-          timeoutPromise
-        ]);
+        // 이메일 발송을 최대 10초까지 기다림 (배포 환경에서도 충분한 시간 확보)
+        emailSent = await sendTempPasswordEmail(user.email, user.name, tempPassword);
         
-        emailSent = result.success;
-        if (!result.success && result.error) {
-          emailError = result.error;
+        if (emailSent) {
+          console.log(`✅ 이메일 전송 성공: ${user.email}`);
+        } else {
+          emailError = '이메일 전송 실패: 서버 응답 없음';
+          console.error(`❌ 이메일 전송 실패: ${user.email} - 서버가 false를 반환했습니다.`);
+          console.error('   - SMTP 설정을 확인해주세요.');
+          console.error('   - Render.com 로그에서 상세한 에러 메시지를 확인하세요.');
         }
       } catch (error: any) {
         emailError = error?.message || '이메일 전송 중 오류 발생';
+        const errorCode = error?.code || 'UNKNOWN';
+        
         console.error('❌ 이메일 발송 중 예외 발생:', {
           email: user.email,
           error: emailError,
+          code: errorCode,
+          response: error?.response,
+          stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
         });
+        
+        // 특정 에러에 대한 추가 안내
+        if (errorCode === 'EAUTH') {
+          console.error('   ⚠️ Gmail 인증 실패: 앱 비밀번호를 사용하고 있는지 확인하세요.');
+        } else if (errorCode === 'ETIMEDOUT' || errorCode === 'ECONNRESET') {
+          console.error('   ⚠️ 네트워크 타임아웃: Render.com에서 SMTP 서버 접근이 제한될 수 있습니다.');
+        }
       }
-
-      // 백그라운드에서 이메일 발송 완료 대기 및 최종 결과 로깅
-      emailPromise
-        .then((success) => {
-          if (success) {
-            console.log(`✅ 이메일 전송 최종 성공: ${user.email}`);
-          } else {
-            console.error(`❌ 이메일 전송 최종 실패: ${user.email} - 이메일 서버 응답 없음`);
-          }
-        })
-        .catch((error) => {
-          console.error('❌ 백그라운드 이메일 발송 실패:', {
-            email: user.email,
-            error: error?.message || error,
-            code: error?.code,
-            response: error?.response,
-            stack: error?.stack,
-          });
-        });
     } else {
       console.log('⚠️ 이메일 설정이 되어있지 않습니다. 환경변수를 확인해주세요.');
+      console.log('   - SMTP_USER와 SMTP_PASS 환경 변수가 설정되어 있는지 확인하세요.');
       console.log('📧 임시 비밀번호 (개발용):', tempPassword);
     }
 
-    // 이메일 발송 실패 시에도 사용자에게는 성공 메시지 표시 (보안상 이유)
-    // 하지만 로그에는 상세한 에러 정보 기록
-    if (emailError && emailError !== 'timeout') {
+    // 이메일 발송 실패 시 상세 로깅
+    if (!emailSent && isEmailConfigured()) {
       console.error('❌ 비밀번호 재설정 - 이메일 발송 실패:', {
         userId: user.id,
         email: user.email,
-        error: emailError,
+        error: emailError || '알 수 없는 오류',
+        timestamp: new Date().toISOString(),
       });
+      console.error('   → Render.com 대시보드 > Logs에서 상세한 에러 메시지를 확인하세요.');
     }
 
     res.json({
       success: true,
       message: emailSent 
         ? '임시 비밀번호가 이메일로 전송되었습니다. 메일함을 확인해주세요.'
-        : '임시 비밀번호가 생성되었습니다. 이메일 발송 중입니다.',
+        : '임시 비밀번호가 생성되었습니다. 이메일 발송 중입니다. 메일이 도착하지 않으면 잠시 후 다시 시도해주세요.',
       // 개발 환경이거나 이메일 미설정 시 임시 비밀번호 반환
       ...((process.env.NODE_ENV === 'development' || !isEmailConfigured()) && { tempPassword }),
       emailSent,
