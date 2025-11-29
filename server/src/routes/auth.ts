@@ -701,6 +701,7 @@ router.post('/reset-password', async (req, res, next) => {
     // 이메일 발송
     let emailSent = false;
     let emailError: string | null = null;
+    let isDomainError = false;
     
     if (isEmailConfigured()) {
       console.log(`📧 이메일 발송 시작: ${user.email}`);
@@ -714,12 +715,21 @@ router.post('/reset-password', async (req, res, next) => {
         } else {
           emailError = '이메일 전송 실패: 서버 응답 없음';
           console.error(`❌ 이메일 전송 실패: ${user.email} - 서버가 false를 반환했습니다.`);
-          console.error('   - SMTP 설정을 확인해주세요.');
-          console.error('   - Render.com 로그에서 상세한 에러 메시지를 확인하세요.');
+          
+          // Resend 사용 중인지 확인
+          if (process.env.RESEND_API_KEY) {
+            console.error('   - Resend 설정을 확인해주세요.');
+            console.error('   - 도메인 인증 오류일 수 있습니다. 로그를 확인하세요.');
+            isDomainError = true;
+          } else {
+            console.error('   - SMTP 설정을 확인해주세요.');
+            console.error('   - Render.com 로그에서 상세한 에러 메시지를 확인하세요.');
+          }
         }
       } catch (error: any) {
         emailError = error?.message || '이메일 전송 중 오류 발생';
         const errorCode = error?.code || 'UNKNOWN';
+        const errorMessage = String(emailError).toLowerCase();
         
         console.error('❌ 이메일 발송 중 예외 발생:', {
           email: user.email,
@@ -729,8 +739,16 @@ router.post('/reset-password', async (req, res, next) => {
           stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
         });
         
+        // Resend 도메인 검증 오류 감지
+        if (errorMessage.includes('domain') && errorMessage.includes('not verified') ||
+            errorMessage.includes('gmail.com') && errorMessage.includes('not verified')) {
+          isDomainError = true;
+          console.error('   ⚠️ Resend 도메인 검증 오류가 감지되었습니다.');
+          console.error('   → https://resend.com/domains 에서 도메인을 인증하거나');
+          console.error('   → RESEND_FROM 환경변수를 인증된 도메인으로 설정하세요.');
+        }
         // 특정 에러에 대한 추가 안내
-        if (errorCode === 'EAUTH') {
+        else if (errorCode === 'EAUTH') {
           console.error('   ⚠️ Gmail 인증 실패: 앱 비밀번호를 사용하고 있는지 확인하세요.');
         } else if (errorCode === 'ETIMEDOUT' || errorCode === 'ECONNRESET') {
           console.error('   ⚠️ 네트워크 타임아웃: Render.com에서 SMTP 서버 접근이 제한될 수 있습니다.');
@@ -738,7 +756,11 @@ router.post('/reset-password', async (req, res, next) => {
       }
     } else {
       console.log('⚠️ 이메일 설정이 되어있지 않습니다. 환경변수를 확인해주세요.');
-      console.log('   - SMTP_USER와 SMTP_PASS 환경 변수가 설정되어 있는지 확인하세요.');
+      if (process.env.RESEND_API_KEY) {
+        console.log('   - RESEND_API_KEY는 설정되어 있지만 이메일 전송에 실패했습니다.');
+      } else {
+        console.log('   - SMTP_USER와 SMTP_PASS 환경 변수가 설정되어 있는지 확인하세요.');
+      }
       console.log('📧 임시 비밀번호 (개발용):', tempPassword);
     }
 
@@ -748,19 +770,33 @@ router.post('/reset-password', async (req, res, next) => {
         userId: user.id,
         email: user.email,
         error: emailError || '알 수 없는 오류',
+        isDomainError,
         timestamp: new Date().toISOString(),
       });
-      console.error('   → Render.com 대시보드 > Logs에서 상세한 에러 메시지를 확인하세요.');
+      
+      if (isDomainError) {
+        console.error('   → Resend 도메인 인증이 필요합니다: https://resend.com/domains');
+      } else {
+        console.error('   → 서버 로그에서 상세한 에러 메시지를 확인하세요.');
+      }
+    }
+
+    // 도메인 오류인 경우 더 명확한 메시지 제공
+    let userMessage = emailSent 
+      ? '임시 비밀번호가 이메일로 전송되었습니다. 메일함을 확인해주세요.'
+      : '임시 비밀번호가 생성되었습니다. 이메일 발송 중입니다. 메일이 도착하지 않으면 잠시 후 다시 시도해주세요.';
+    
+    if (!emailSent && isDomainError && process.env.RESEND_API_KEY) {
+      userMessage = '임시 비밀번호가 생성되었습니다. 이메일 발송 설정에 문제가 있습니다. 관리자에게 문의하세요.';
     }
 
     res.json({
       success: true,
-      message: emailSent 
-        ? '임시 비밀번호가 이메일로 전송되었습니다. 메일함을 확인해주세요.'
-        : '임시 비밀번호가 생성되었습니다. 이메일 발송 중입니다. 메일이 도착하지 않으면 잠시 후 다시 시도해주세요.',
+      message: userMessage,
       // 개발 환경이거나 이메일 미설정 시 임시 비밀번호 반환
       ...((process.env.NODE_ENV === 'development' || !isEmailConfigured()) && { tempPassword }),
       emailSent,
+      ...(isDomainError && { domainError: true }),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

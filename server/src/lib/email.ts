@@ -155,7 +155,28 @@ class ResendService implements EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const from = process.env.RESEND_FROM || process.env.SMTP_FROM || 'onboarding@resend.dev';
+      // Resend는 인증된 도메인만 사용 가능
+      // SMTP_FROM이 gmail.com 등 미인증 도메인이면 기본 Resend 도메인 사용
+      let from = process.env.RESEND_FROM || 'onboarding@resend.dev';
+      
+      // SMTP_FROM이 설정되어 있고 gmail.com이 아닌 경우에만 사용
+      if (process.env.SMTP_FROM && !process.env.RESEND_FROM) {
+        const smtpFrom = process.env.SMTP_FROM;
+        // gmail.com, naver.com 등 일반 이메일 도메인은 Resend에서 사용 불가
+        if (smtpFrom.includes('@gmail.com') || 
+            smtpFrom.includes('@naver.com') || 
+            smtpFrom.includes('@daum.net') ||
+            smtpFrom.includes('@yahoo.com') ||
+            smtpFrom.includes('@hotmail.com') ||
+            smtpFrom.includes('@outlook.com')) {
+          console.warn(`⚠️ Resend는 인증된 도메인만 사용 가능합니다. ${smtpFrom} 대신 기본 도메인을 사용합니다.`);
+          console.warn('   → Resend에서 도메인을 인증하거나 RESEND_FROM 환경변수를 설정하세요.');
+          from = 'onboarding@resend.dev';
+        } else {
+          // 커스텀 도메인인 경우 사용 (인증 필요)
+          from = smtpFrom;
+        }
+      }
       
       const result = await this.resend.emails.send({
         from: from,
@@ -166,20 +187,51 @@ class ResendService implements EmailService {
       });
 
       if (result.error) {
+        const errorMessage = result.error.message || String(result.error);
+        const errorCode = (result.error as any)?.name || 'UNKNOWN';
+        
         console.error('❌ Resend 이메일 전송 실패:', {
           to: options.to,
-          error: result.error.message || result.error,
+          from: from,
+          error: errorMessage,
+          code: errorCode,
         });
+        
+        // 도메인 검증 오류 감지
+        if (errorMessage.includes('domain') && errorMessage.includes('not verified') || 
+            errorMessage.includes('domain') && errorMessage.includes('not verified') ||
+            errorMessage.includes('gmail.com') && errorMessage.includes('not verified')) {
+          console.error('⚠️ Resend 도메인 검증 오류:');
+          console.error(`   - 사용 중인 From 주소: ${from}`);
+          console.error('   - Resend는 인증된 도메인만 사용할 수 있습니다.');
+          console.error('   → 해결 방법:');
+          console.error('      1. https://resend.com/domains 에서 도메인을 추가하고 인증하세요');
+          console.error('      2. 또는 RESEND_FROM 환경변수를 인증된 도메인으로 설정하세요');
+          console.error('      3. 또는 기본 도메인(onboarding@resend.dev)을 사용하세요');
+        }
+        
         return false;
       }
 
       console.log(`✅ Resend 이메일 전송 성공: ${options.to} (ID: ${result.data?.id || 'N/A'})`);
       return true;
     } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      
       console.error('❌ Resend 이메일 전송 중 예외 발생:', {
         to: options.to,
-        error: error?.message || error,
+        error: errorMessage,
+        stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
       });
+      
+      // 도메인 검증 오류 감지
+      if (errorMessage.includes('domain') && errorMessage.includes('not verified') ||
+          errorMessage.includes('gmail.com') && errorMessage.includes('not verified')) {
+        console.error('⚠️ Resend 도메인 검증 오류가 감지되었습니다.');
+        console.error('   → https://resend.com/domains 에서 도메인을 인증하거나');
+        console.error('   → RESEND_FROM 환경변수를 인증된 도메인으로 설정하세요.');
+      }
+      
       return false;
     }
   }
