@@ -1,6 +1,6 @@
 {
   "name": "attendance-system",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "학원 출결 관리 시스템",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

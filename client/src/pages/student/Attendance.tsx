@@ -37,6 +37,10 @@ interface ClassInfo {
     late: number;
     rate: number;
   };
+  cancellationInfo?: {
+    dates: string[];
+    makeUpDates: string[];
+  } | null;
 }
 
 export default function StudentAttendance() {
@@ -69,6 +73,16 @@ export default function StudentAttendance() {
     }
   };
 
+  // 모든 클래스의 휴강/보강 날짜 수집
+  const allCancellationDates = new Set<string>();
+  const allMakeUpDates = new Set<string>();
+  classes.forEach((c) => {
+    if (c.cancellationInfo) {
+      c.cancellationInfo.dates.forEach((date) => allCancellationDates.add(date));
+      c.cancellationInfo.makeUpDates.forEach((date) => allMakeUpDates.add(date));
+    }
+  });
+
   // Generate calendar days
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -89,6 +103,14 @@ export default function StudentAttendance() {
     return filteredAttendances.find(
       (a) => format(new Date(a.date), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
     );
+  };
+
+  // Check if a day is a cancellation or make-up date
+  const getDayType = (day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    if (allCancellationDates.has(dayStr)) return 'cancellation';
+    if (allMakeUpDates.has(dayStr)) return 'makeup';
+    return null;
   };
 
   // Get status color class
@@ -119,7 +141,8 @@ export default function StudentAttendance() {
   // Handle day click
   const handleDayClick = (day: Date) => {
     const attendance = getAttendanceForDay(day);
-    if (attendance) {
+    const dayType = getDayType(day);
+    if (attendance || dayType) {
       setSelectedDay(day);
       setDetailModalOpen(true);
     }
@@ -199,7 +222,15 @@ export default function StudentAttendance() {
             ))}
             {calendarDays.map((day) => {
               const attendance = getAttendanceForDay(day);
+              const dayType = getDayType(day);
               const statusClass = getStatusClass(attendance?.status);
+              const statusText = attendance ? 
+                (attendance.status === 'PRESENT' ? '출석' :
+                 attendance.status === 'ABSENT' ? '결석' :
+                 attendance.status === 'LATE' ? '지각' :
+                 attendance.status === 'EARLY_LEAVE' ? '조퇴' :
+                 attendance.status === 'SICK_LEAVE' ? '병가' :
+                 attendance.status === 'VACATION' ? '휴가' : '') : '';
               
               return (
                 <div
@@ -207,14 +238,58 @@ export default function StudentAttendance() {
                   className={`calendar__day ${
                     !isSameMonth(day, currentDate) ? 'calendar__day--other-month' : ''
                   } ${isToday(day) ? 'calendar__day--today' : ''} ${attendance ? 'calendar__day--has-attendance' : ''}`}
-                  onClick={() => attendance && handleDayClick(day)}
-                  style={{ cursor: attendance ? 'pointer' : 'default' }}
+                  onClick={() => (attendance || dayType) && handleDayClick(day)}
+                  style={{ 
+                    cursor: (attendance || dayType) ? 'pointer' : 'default', 
+                    position: 'relative',
+                    background: dayType === 'cancellation' ? 'rgba(239, 68, 68, 0.1)' :
+                                dayType === 'makeup' ? 'rgba(34, 197, 94, 0.1)' : undefined,
+                  }}
+                  title={attendance ? `${format(day, 'M월 d일')}: ${statusText}` : 
+                         dayType === 'cancellation' ? `${format(day, 'M월 d일')}: 휴강` :
+                         dayType === 'makeup' ? `${format(day, 'M월 d일')}: 보강` : ''}
                 >
                   <span className="calendar__day-number">
                     {format(day, 'd')}
                   </span>
                   {attendance && (
-                    <span className={`calendar__day-status calendar__day-status--${statusClass}`} />
+                    <>
+                      <span className={`calendar__day-status calendar__day-status--${statusClass}`} />
+                      <span 
+                        className="text-xs" 
+                        style={{ 
+                          position: 'absolute',
+                          bottom: '2px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          fontSize: '9px',
+                          fontWeight: 600,
+                          color: statusClass === 'present' ? 'var(--color-success)' :
+                                 statusClass === 'absent' ? 'var(--color-error)' :
+                                 statusClass === 'late' ? 'var(--color-warning)' : 'var(--text-tertiary)',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {statusText}
+                      </span>
+                    </>
+                  )}
+                  {!attendance && dayType && (
+                    <span 
+                      className="text-xs" 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: '2px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        color: dayType === 'cancellation' ? 'var(--color-error)' : 'var(--color-success)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {dayType === 'cancellation' ? '휴강' : '보강'}
+                    </span>
                   )}
                 </div>
               );
@@ -238,6 +313,26 @@ export default function StudentAttendance() {
             <div className="seat-legend__item">
               <div className="seat-legend__color seat-legend__color--sick-leave" />
               <span>병가/휴가</span>
+            </div>
+            <div className="seat-legend__item">
+              <div style={{ 
+                width: '12px', 
+                height: '12px', 
+                borderRadius: '2px', 
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '1px solid var(--color-error)',
+              }} />
+              <span>휴강</span>
+            </div>
+            <div className="seat-legend__item">
+              <div style={{ 
+                width: '12px', 
+                height: '12px', 
+                borderRadius: '2px', 
+                background: 'rgba(34, 197, 94, 0.2)',
+                border: '1px solid var(--color-success)',
+              }} />
+              <span>보강</span>
             </div>
           </div>
         </Card>
@@ -357,31 +452,68 @@ export default function StudentAttendance() {
       >
         {selectedDay && (() => {
           const attendance = getAttendanceForDay(selectedDay);
-          if (!attendance) return null;
+          const dayType = getDayType(selectedDay);
           
-          return (
-            <div className="flex flex-col gap-md">
-              <div className="flex items-center justify-between p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
-                <div>
-                  <div className="text-sm text-tertiary mb-xs">클래스</div>
-                  <div className="text-lg font-semibold">{attendance.class.name}</div>
+          if (attendance) {
+            return (
+              <div className="flex flex-col gap-md">
+                <div className="flex items-center justify-between p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                  <div>
+                    <div className="text-sm text-tertiary mb-xs">클래스</div>
+                    <div className="text-lg font-semibold">{attendance.class.name}</div>
+                  </div>
+                  <AttendanceBadge status={attendance.status} />
                 </div>
-                <AttendanceBadge status={attendance.status} />
-              </div>
-              
-              {attendance.note && (
+                
+                {attendance.note && (
+                  <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                    <div className="text-sm text-tertiary mb-xs">메모</div>
+                    <div className="text-sm">{attendance.note}</div>
+                  </div>
+                )}
+                
                 <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
-                  <div className="text-sm text-tertiary mb-xs">메모</div>
-                  <div className="text-sm">{attendance.note}</div>
+                  <div className="text-sm text-tertiary mb-xs">출결 상태</div>
+                  <div className="text-sm font-medium">{getStatusLabel(attendance.status)}</div>
                 </div>
-              )}
-              
-              <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
-                <div className="text-sm text-tertiary mb-xs">출결 상태</div>
-                <div className="text-sm font-medium">{getStatusLabel(attendance.status)}</div>
               </div>
-            </div>
-          );
+            );
+          }
+          
+          if (dayType) {
+            const classWithCancellation = classes.find(c => {
+              if (!c.cancellationInfo) return false;
+              const dayStr = format(selectedDay, 'yyyy-MM-dd');
+              if (dayType === 'cancellation') {
+                return c.cancellationInfo.dates.includes(dayStr);
+              } else {
+                return c.cancellationInfo.makeUpDates.includes(dayStr);
+              }
+            });
+            
+            return (
+              <div className="flex flex-col gap-md">
+                <div className="p-md rounded-md" style={{ 
+                  background: dayType === 'cancellation' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                  border: `1px solid ${dayType === 'cancellation' ? 'var(--color-error)' : 'var(--color-success)'}`,
+                }}>
+                  <div className="text-sm text-tertiary mb-xs">클래스</div>
+                  <div className="text-lg font-semibold">{classWithCancellation?.class.name || '알 수 없음'}</div>
+                </div>
+                
+                <div className="p-md rounded-md" style={{ background: 'var(--bg-secondary)' }}>
+                  <div className="text-sm text-tertiary mb-xs">상태</div>
+                  <div className="text-sm font-medium" style={{ 
+                    color: dayType === 'cancellation' ? 'var(--color-error)' : 'var(--color-success)',
+                  }}>
+                    {dayType === 'cancellation' ? '휴강일' : '보강일'}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
+          return null;
         })()}
       </Modal>
     </div>

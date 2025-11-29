@@ -7,6 +7,7 @@ import Avatar from '../../components/common/Avatar';
 import Button from '../../components/common/Button';
 import ProgressRing from '../../components/common/ProgressRing';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import toast from 'react-hot-toast';
 
 const UsersIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -54,7 +55,8 @@ interface OverviewData {
     absent: number;
     rate: number;
   };
-  classStats: { id: string; name: string; rate: number }[];
+  classStats: { id: string; name: string; rate: number; status?: string }[];
+  cancelledClasses?: { id: string; name: string; status: string }[];
   warningStudents: { id: string; name: string; email: string; avatarUrl?: string; rate: number; absent: number }[];
 }
 
@@ -73,8 +75,10 @@ export default function AdminDashboard() {
     try {
       const response = await statsAPI.getOverview();
       setData(response.data.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch overview:', error);
+      const errorMessage = error.response?.data?.message || '대시보드 데이터를 불러오는데 실패했습니다.';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -207,6 +211,72 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
+      {/* Cancelled Classes - 부드럽게 표시 */}
+      {data.cancelledClasses && data.cancelledClasses.length > 0 && (
+        <Card className="mt-lg" style={{ 
+          border: '1px solid rgba(239, 68, 68, 0.2)', 
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%)',
+        }}>
+          <CardHeader>
+            <h4 style={{ 
+              color: 'var(--text-primary)',
+              fontWeight: 500,
+            }}>
+              <span style={{ 
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'rgba(239, 68, 68, 0.6)',
+                marginRight: '8px',
+                verticalAlign: 'middle',
+              }} />
+              폐강된 클래스 ({data.cancelledClasses.length}개)
+            </h4>
+            <Link to="/admin/classes">
+              <Button variant="ghost" size="sm">전체보기</Button>
+            </Link>
+          </CardHeader>
+          <CardBody>
+            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+              {data.cancelledClasses.map((cls) => (
+                <div 
+                  key={cls.id}
+                  className="flex items-center gap-md p-md rounded-lg"
+                  style={{ 
+                    background: 'var(--bg-primary)', 
+                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.03)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.15)';
+                    e.currentTarget.style.background = 'var(--bg-primary)';
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate" style={{ 
+                      color: 'var(--text-primary)',
+                      opacity: 0.85,
+                    }}>
+                      {cls.name}
+                    </div>
+                    <div className="text-xs text-tertiary mt-xs" style={{ 
+                      color: 'rgba(239, 68, 68, 0.7)',
+                    }}>
+                      폐강 처리됨
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Warning Students */}
       {data.warningStudents.length > 0 && (
         <Card className="mt-lg">
@@ -238,27 +308,104 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {/* Quick Actions */}
+      {/* Quick Actions - 개선된 레이아웃 */}
       <Card className="mt-lg">
         <CardHeader>
           <h4>빠른 작업</h4>
         </CardHeader>
         <CardBody>
-          <div className="quick-actions">
-            <Link to="/admin/users">
-              <div className="quick-actions__item">
-                <div className="quick-actions__icon quick-actions__icon--primary">
+          <div 
+            style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 'var(--spacing-md)',
+            }}
+          >
+            <Link to="/admin/users" style={{ textDecoration: 'none' }}>
+              <div 
+                className="quick-actions__item"
+                style={{ 
+                  padding: 'var(--spacing-md)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  transition: 'all 0.2s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <div className="quick-actions__icon quick-actions__icon--primary" style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <UsersIcon />
                 </div>
-                <span className="quick-actions__label">사용자 관리</span>
+                <span className="quick-actions__label" style={{ fontSize: '0.875rem', fontWeight: 500 }}>사용자 관리</span>
+                <div className="text-xs text-tertiary" style={{ marginTop: '4px' }}>
+                  학생, 선생님 계정 관리
+                </div>
               </div>
             </Link>
-            <Link to="/admin/classes">
-              <div className="quick-actions__item">
-                <div className="quick-actions__icon quick-actions__icon--secondary">
+            <Link to="/admin/classes" style={{ textDecoration: 'none' }}>
+              <div 
+                className="quick-actions__item"
+                style={{ 
+                  padding: 'var(--spacing-md)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  transition: 'all 0.2s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <div className="quick-actions__icon quick-actions__icon--secondary" style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <GridIcon />
                 </div>
-                <span className="quick-actions__label">클래스 관리</span>
+                <span className="quick-actions__label" style={{ fontSize: '0.875rem', fontWeight: 500 }}>클래스 관리</span>
+                <div className="text-xs text-tertiary" style={{ marginTop: '4px' }}>
+                  클래스 생성 및 관리
+                </div>
+              </div>
+            </Link>
+            <Link to="/teacher/attendance" style={{ textDecoration: 'none' }}>
+              <div 
+                className="quick-actions__item"
+                style={{ 
+                  padding: 'var(--spacing-md)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-secondary)',
+                  transition: 'all 0.2s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-tertiary)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-secondary)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <div className="quick-actions__icon" style={{ marginBottom: 'var(--spacing-sm)', color: 'var(--color-success)' }}>
+                  <ChartIcon />
+                </div>
+                <span className="quick-actions__label" style={{ fontSize: '0.875rem', fontWeight: 500 }}>출석 관리</span>
+                <div className="text-xs text-tertiary" style={{ marginTop: '4px' }}>
+                  출석 기록 및 확인
+                </div>
               </div>
             </Link>
           </div>

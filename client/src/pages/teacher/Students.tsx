@@ -18,6 +18,11 @@ interface Student {
   phone?: string;
   avatarUrl?: string;
   isActive: boolean;
+  classes?: Array<{
+    id: string;
+    name: string;
+    attendanceRate?: number;
+  }>;
 }
 
 interface StudentStats {
@@ -50,6 +55,7 @@ export default function TeacherStudents() {
   const [modalLoading, setModalLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'monthly'>('list');
   const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all'); // 학생 목록 필터용
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [monthlyRates, setMonthlyRates] = useState<MonthlyAttendanceRate[]>([]);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
@@ -68,9 +74,54 @@ export default function TeacherStudents() {
   const fetchStudents = async () => {
     try {
       const response = await userAPI.getAll({ role: 'STUDENT' });
-      setStudents(response.data.data.users);
+      const studentsData = response.data.data.users;
+      
+      // 각 학생의 클래스 정보와 출석률 가져오기
+      const studentsWithClasses = await Promise.all(
+        studentsData.map(async (student: Student) => {
+          try {
+            // 학생 상세 정보 가져오기 (클래스 정보 포함)
+            const detailRes = await userAPI.getById(student.id);
+            const studentDetail = detailRes.data.data;
+            
+            // 각 클래스의 출석률 가져오기
+            const classesWithRates = await Promise.all(
+              (studentDetail.studentClass || []).map(async (sc: any) => {
+                try {
+                  const statsRes = await statsAPI.getClassStats(sc.class.id, 1);
+                  const currentPeriod = statsRes.data?.data?.periods?.[0];
+                  return {
+                    id: sc.class.id,
+                    name: sc.class.name,
+                    attendanceRate: currentPeriod?.rate || 0,
+                  };
+                } catch (e) {
+                  return {
+                    id: sc.class.id,
+                    name: sc.class.name,
+                    attendanceRate: 0,
+                  };
+                }
+              })
+            );
+            
+            return {
+              ...student,
+              classes: classesWithRates,
+            };
+          } catch (e) {
+            return {
+              ...student,
+              classes: [],
+            };
+          }
+        })
+      );
+      
+      setStudents(studentsWithClasses);
     } catch (error) {
       console.error('Failed to fetch students:', error);
+      toast.error('학생 정보를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -132,10 +183,17 @@ export default function TeacherStudents() {
     }
   };
 
-  const filteredStudents = students.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStudents = students.filter((s) => {
+    // 검색 필터
+    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.email.toLowerCase().includes(search.toLowerCase());
+    
+    // 반 필터
+    const matchesClass = selectedClassFilter === 'all' || 
+      (s.classes && s.classes.some(c => c.id === selectedClassFilter));
+    
+    return matchesSearch && matchesClass;
+  });
 
   if (loading) {
     return <div className="loading-screen"><div className="spinner" /></div>;
@@ -172,15 +230,32 @@ export default function TeacherStudents() {
 
       {viewMode === 'list' ? (
         <>
-          {/* Search */}
+          {/* Search and Filter */}
           <Card className="mb-lg">
             <CardBody>
-              <div style={{ maxWidth: '400px' }}>
-                <SearchInput
-                  placeholder="이름 또는 이메일로 검색..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                gap: 'var(--spacing-md)',
+              }}>
+                <div style={{ maxWidth: '400px' }}>
+                  <SearchInput
+                    placeholder="이름 또는 이메일로 검색..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <div style={{ maxWidth: '300px' }}>
+                  <Select
+                    label="반별 필터"
+                    options={[
+                      { value: 'all', label: '전체 반' },
+                      ...classes.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                    value={selectedClassFilter}
+                    onChange={(e) => setSelectedClassFilter(e.target.value)}
+                  />
+                </div>
               </div>
             </CardBody>
           </Card>
@@ -192,15 +267,16 @@ export default function TeacherStudents() {
           description={search ? '검색 결과가 없습니다.' : '등록된 학생이 없습니다.'}
         />
       ) : (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 'var(--spacing-md)' }}>
           {filteredStudents.map((student) => (
             <Card 
               key={student.id} 
               hover 
               onClick={() => fetchStudentStats(student)}
               className="cursor-pointer"
+              style={{ display: 'flex', flexDirection: 'column' }}
             >
-              <CardBody>
+              <CardBody style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                 <div className="flex items-center gap-md">
                   <Avatar src={student.avatarUrl} name={student.name} size="lg" />
                   <div className="flex-1 min-w-0">
@@ -209,6 +285,54 @@ export default function TeacherStudents() {
                     <div className="text-xs text-tertiary">{student.phone || '연락처 없음'}</div>
                   </div>
                 </div>
+                
+                {/* 반 정보 및 출석률 */}
+                {student.classes && student.classes.length > 0 && (
+                  <div style={{ 
+                    marginTop: 'var(--spacing-sm)',
+                    padding: 'var(--spacing-sm)',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
+                  }}>
+                    <div className="text-xs text-tertiary" style={{ marginBottom: '6px' }}>
+                      수강 중인 반 ({student.classes.length}개)
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      {student.classes.map((cls) => (
+                        <div 
+                          key={cls.id}
+                          className="flex items-center justify-between"
+                          style={{ 
+                            padding: '4px 8px',
+                            background: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-sm)',
+                          }}
+                        >
+                          <div className="text-xs font-medium truncate" style={{ flex: 1, minWidth: 0 }}>
+                            {cls.name}
+                          </div>
+                          <div className="text-xs font-medium" style={{ 
+                            color: cls.attendanceRate >= 80 ? 'var(--color-success)' :
+                                   cls.attendanceRate >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
+                            marginLeft: 'var(--spacing-xs)',
+                          }}>
+                            {cls.attendanceRate}%
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {(!student.classes || student.classes.length === 0) && (
+                  <div className="text-xs text-tertiary" style={{ 
+                    padding: 'var(--spacing-xs)',
+                    fontStyle: 'italic',
+                  }}>
+                    수강 중인 반이 없습니다
+                  </div>
+                )}
               </CardBody>
             </Card>
           ))}

@@ -66,9 +66,17 @@ export default function TeacherAttendance() {
   };
 
   const fetchAttendance = async () => {
+    if (!selectedClass) return;
+    
     try {
       const response = await attendanceAPI.getByClassDate(selectedClass, selectedDate);
       const data = response.data.data;
+      
+      if (!data.students || data.students.length === 0) {
+        toast.error('이 클래스에 등록된 학생이 없습니다.');
+        setStudents([]);
+        return;
+      }
       
       setStudents(
         data.students.map((s: any) => ({
@@ -76,8 +84,11 @@ export default function TeacherAttendance() {
           selectedStatus: s.attendance?.status || 'PRESENT',
         }))
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch attendance:', error);
+      const errorMessage = error.response?.data?.message || '출결 정보를 불러오는데 실패했습니다.';
+      toast.error(errorMessage);
+      setStudents([]);
     }
   };
 
@@ -90,6 +101,16 @@ export default function TeacherAttendance() {
   };
 
   const handleBulkSave = async () => {
+    if (students.length === 0) {
+      toast.error('저장할 학생이 없습니다.');
+      return;
+    }
+
+    if (!selectedClass) {
+      toast.error('클래스를 선택해주세요.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const attendances = students.map((s) => ({
@@ -97,16 +118,25 @@ export default function TeacherAttendance() {
         status: s.selectedStatus,
       }));
 
-      await attendanceAPI.createBulk({
+      const response = await attendanceAPI.createBulk({
         classId: selectedClass,
         date: selectedDate,
         attendances,
       });
 
-      toast.success('출결이 저장되었습니다.');
+      toast.success(response.data?.message || '출결이 저장되었습니다.');
       fetchAttendance();
-    } catch (error) {
-      toast.error('출결 저장에 실패했습니다.');
+    } catch (error: any) {
+      console.error('Failed to save attendance:', error);
+      const errorMessage = error.response?.data?.message || error.message || '출결 저장에 실패했습니다.';
+      toast.error(errorMessage);
+      
+      // 상세 에러 정보 로깅
+      if (error.response?.status === 403) {
+        console.error('권한 오류: 선생님 계정이 해당 클래스에 접근할 수 없습니다.');
+      } else if (error.response?.status === 400) {
+        console.error('요청 오류:', error.response?.data);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -57,6 +57,8 @@ export default function TeacherClassDetail() {
   const [attendanceStatus, setAttendanceStatus] = useState('PRESENT');
   const [seatModal, setSeatModal] = useState(false);
   const [seatConfig, setSeatConfig] = useState({ rows: 4, cols: 5 });
+  const [seatAssignModal, setSeatAssignModal] = useState(false);
+  const [selectedSeat, setSelectedSeat] = useState<{ id: string; label: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -151,6 +153,30 @@ export default function TeacherClassDetail() {
     setAttendanceModal(true);
   };
 
+  const openSeatAssignModal = (seat: { id: string; label: string; student?: { id: string; name: string } }) => {
+    setSelectedSeat({ id: seat.id, label: seat.label });
+    setSeatAssignModal(true);
+  };
+
+  const handleAssignSeat = async (studentId: string | null) => {
+    if (!selectedSeat) return;
+
+    setSubmitting(true);
+    try {
+      await classAPI.assignSeat(id!, selectedSeat.id, studentId);
+      toast.success(studentId ? '좌석이 배정되었습니다.' : '좌석이 해제되었습니다.');
+      setSeatAssignModal(false);
+      setSelectedSeat(null);
+      fetchClassData();
+    } catch (error: any) {
+      console.error('Failed to assign seat:', error);
+      const errorMessage = error.response?.data?.message || '좌석 배정에 실패했습니다.';
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading-screen"><div className="spinner" /></div>;
   }
@@ -195,14 +221,23 @@ export default function TeacherClassDetail() {
         </div>
       </div>
 
-      <div className="two-column">
+      {/* 통합 뷰: 좌석과 출석을 함께 표시 */}
+      <div 
+        style={{ 
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 500px), 1fr))',
+          gap: 'var(--spacing-lg)',
+        }}
+      >
         {/* Seat Grid */}
         <Card>
           <CardHeader>
-            <h4>좌석 현황</h4>
-            <span className="text-sm text-tertiary">
-              {format(new Date(selectedDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
-            </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+              <h4>좌석 현황</h4>
+              <span className="text-sm text-tertiary">
+                {format(new Date(selectedDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
+              </span>
+            </div>
           </CardHeader>
           <CardBody>
             {classData.seats.length === 0 ? (
@@ -235,9 +270,15 @@ export default function TeacherClassDetail() {
                         .map((seat) => (
                           <div
                             key={seat.id}
-                            className={`seat seat--${getSeatStatusClass(seat)}`}
-                            onClick={() => seat.student && openAttendanceModal(seat.student)}
-                            title={seat.student?.name || '빈 좌석'}
+                            className={`seat seat--${getSeatStatusClass(seat)} ${!seat.student ? 'seat--assignable' : ''}`}
+                            onClick={() => {
+                              if (seat.student) {
+                                openAttendanceModal(seat.student);
+                              } else {
+                                openSeatAssignModal(seat);
+                              }
+                            }}
+                            title={seat.student ? `${seat.student.name} (출결 입력)` : `${seat.label} (좌석 배정)`}
                           >
                             {seat.student ? (
                               <>
@@ -313,10 +354,39 @@ export default function TeacherClassDetail() {
                       <Avatar src={member.student.avatarUrl} name={member.student.name} size="sm" />
                       <div>
                         <div className="text-sm font-medium">{member.student.name}</div>
-                        <div className="text-xs text-tertiary">{member.student.phone || '연락처 없음'}</div>
+                        <div className="text-xs text-tertiary">
+                          {member.student.phone || '연락처 없음'}
+                          {classData.seats.find(s => s.student?.id === member.student.id) && (
+                            <span className="ml-sm" style={{ color: 'var(--color-success)' }}>
+                              • 좌석 배정됨
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm">출결</Button>
+                    <div className="flex gap-xs">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const assignedSeat = classData.seats.find(s => s.student?.id === member.student.id);
+                          if (assignedSeat) {
+                            openSeatAssignModal(assignedSeat);
+                          } else {
+                            toast('좌석을 클릭하여 학생을 배정하세요.', { icon: 'ℹ️' });
+                          }
+                        }}
+                      >
+                        좌석
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => {
+                        e.stopPropagation();
+                        openAttendanceModal(member.student);
+                      }}>
+                        출결
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -393,6 +463,83 @@ export default function TeacherClassDetail() {
           <div className="text-sm text-tertiary">
             총 {seatConfig.rows * seatConfig.cols}개의 좌석이 생성됩니다.
           </div>
+        </div>
+      </Modal>
+
+      {/* Seat Assign Modal */}
+      <Modal
+        isOpen={seatAssignModal}
+        onClose={() => {
+          setSeatAssignModal(false);
+          setSelectedSeat(null);
+        }}
+        title={`좌석 배정: ${selectedSeat?.label || ''}`}
+        footer={
+          <>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (selectedSeat && classData?.seats.find(s => s.id === selectedSeat.id)?.student) {
+                  handleAssignSeat(null);
+                } else {
+                  setSeatAssignModal(false);
+                  setSelectedSeat(null);
+                }
+              }}
+            >
+              {selectedSeat && classData?.seats.find(s => s.id === selectedSeat.id)?.student ? '좌석 해제' : '취소'}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-md">
+          {selectedSeat && classData?.seats.find(s => s.id === selectedSeat.id)?.student ? (
+            <div>
+              <p className="text-sm text-tertiary mb-md">
+                현재 배정된 학생: <strong>{classData.seats.find(s => s.id === selectedSeat.id)?.student?.name}</strong>
+              </p>
+              <p className="text-sm text-tertiary mb-md">
+                좌석을 해제하려면 "좌석 해제" 버튼을 클릭하세요.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-tertiary mb-md">
+                좌석에 배정할 학생을 선택하세요.
+              </p>
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }} className="flex flex-col gap-sm">
+                {classData?.members
+                  .filter(m => !classData.seats.find(s => s.student?.id === m.student.id))
+                  .map((member) => (
+                    <div
+                      key={member.student.id}
+                      className="flex items-center justify-between p-sm rounded-md cursor-pointer"
+                      style={{ 
+                        background: 'var(--bg-secondary)',
+                        transition: 'background var(--transition-fast)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                      onClick={() => handleAssignSeat(member.student.id)}
+                    >
+                      <div className="flex items-center gap-sm">
+                        <Avatar src={member.student.avatarUrl} name={member.student.name} size="sm" />
+                        <div>
+                          <div className="text-sm font-medium">{member.student.name}</div>
+                          <div className="text-xs text-tertiary">{member.student.email}</div>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm">배정</Button>
+                    </div>
+                  ))}
+                {classData?.members.filter(m => !classData.seats.find(s => s.student?.id === m.student.id)).length === 0 && (
+                  <p className="text-sm text-tertiary text-center p-md">
+                    배정 가능한 학생이 없습니다. (모든 학생이 이미 좌석에 배정됨)
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

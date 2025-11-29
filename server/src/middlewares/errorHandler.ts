@@ -37,14 +37,28 @@ export const errorHandler = (
   if (err.name === 'PrismaClientKnownRequestError' || 
       err.name === 'PrismaClientValidationError' || 
       err.name === 'PrismaClientInitializationError') {
-    console.error('Prisma error code:', (err as any).code);
-    console.error('Prisma error meta:', (err as any).meta);
+    const prismaError = err as any;
+    console.error('Prisma error code:', prismaError.code);
+    console.error('Prisma error meta:', prismaError.meta);
     console.error('Prisma error message:', err.message);
+    
+    // 특정 에러 코드에 대한 구체적인 메시지
+    let userMessage = '데이터베이스 요청 오류가 발생했습니다.';
+    if (prismaError.code === 'P2002') {
+      userMessage = '중복된 데이터가 있습니다. 이미 사용 중인 값입니다.';
+    } else if (prismaError.code === 'P2003') {
+      userMessage = '참조된 데이터를 찾을 수 없습니다.';
+    } else if (prismaError.code === 'P2025') {
+      userMessage = '요청한 데이터를 찾을 수 없습니다.';
+    }
+    
     return res.status(400).json({
       success: false,
-      message: '데이터베이스 요청 오류가 발생했습니다.',
+      message: userMessage,
       ...(process.env.NODE_ENV === 'development' && {
         details: err.message,
+        code: prismaError.code,
+        meta: prismaError.meta,
       }),
     });
   }

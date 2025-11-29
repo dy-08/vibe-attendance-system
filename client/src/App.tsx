@@ -23,11 +23,14 @@ import TeacherClasses from './pages/teacher/Classes';
 import TeacherClassDetail from './pages/teacher/ClassDetail';
 import TeacherStudents from './pages/teacher/Students';
 import TeacherAttendance from './pages/teacher/Attendance';
+import TeacherLeave from './pages/teacher/Leave';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminUsers from './pages/admin/Users';
 import AdminClasses from './pages/admin/Classes';
+import AdminSettings from './pages/admin/Settings';
+import AdminCancellationRequests from './pages/admin/CancellationRequests';
 
 // Guest Pages
 import WaitingPage from './pages/guest/WaitingPage';
@@ -163,8 +166,10 @@ function App() {
         }
       >
         <Route index element={<TeacherDashboard />} />
+        <Route path="my-classes" element={<TeacherClasses />} />
         <Route path="classes" element={<TeacherClasses />} />
         <Route path="classes/:id" element={<TeacherClassDetail />} />
+        <Route path="leave" element={<TeacherLeave />} />
         <Route path="students" element={<TeacherStudents />} />
         <Route path="attendance" element={<TeacherAttendance />} />
       </Route>
@@ -181,6 +186,8 @@ function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="classes" element={<AdminClasses />} />
+        <Route path="cancellation-requests" element={<AdminCancellationRequests />} />
+        <Route path="settings" element={<AdminSettings />} />
       </Route>
 
       {/* Guest Routes */}

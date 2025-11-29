@@ -133,10 +133,14 @@ export const classAPI = {
     api.put(`/classes/${id}`, data),
   delete: (id: string) => 
     api.delete(`/classes/${id}`),
+  resetPeriod: (id: string) =>
+    api.post(`/classes/${id}/reset-period`),
   addStudent: (classId: string, studentId: string) =>
     api.post(`/classes/${classId}/students`, { studentId }),
   removeStudent: (classId: string, studentId: string) =>
     api.delete(`/classes/${classId}/students/${studentId}`),
+  withdraw: (classId: string) =>
+    api.delete(`/classes/${classId}/withdraw`),
   createSeats: (classId: string, rows: number, cols: number) =>
     api.post(`/classes/${classId}/seats`, { rows, cols }),
   assignSeat: (classId: string, seatId: string, studentId: string | null) =>
@@ -148,6 +152,8 @@ export const attendanceAPI = {
     api.get('/attendance', { params }),
   getByClassDate: (classId: string, date: string) =>
     api.get(`/attendance/class/${classId}/date/${date}`),
+  getClassAttendance: (classId: string, date: string) =>
+    api.get(`/attendance/class/${classId}/date/${date}`),
   getMy: (params?: any) =>
     api.get('/attendance/my', { params }),
   create: (data: any) => 
@@ -157,14 +163,24 @@ export const attendanceAPI = {
 };
 
 export const statsAPI = {
-  getClassStats: (classId: string, months?: number) =>
-    api.get(`/stats/class/${classId}`, { params: { months } }),
+  getClassStats: (classId: string, periods?: number) =>
+    api.get(`/stats/class/${classId}`, { params: { periods } }),
   getOverview: () =>
     api.get('/stats/overview'),
   getStudentStats: (studentId: string, months?: number) =>
     api.get(`/stats/student/${studentId}`, { params: { months } }),
   getClassMonthlyRates: (classId: string, month: string) =>
     api.get(`/stats/class/${classId}/monthly`, { params: { month } }),
+};
+
+export const cancellationAPI = {
+  create: (data: any) => api.post('/cancellation', data),
+  getMy: () => api.get('/cancellation/my'),
+  getAll: (params?: any) => api.get('/cancellation', { params }),
+  approve: (id: string) => api.put(`/cancellation/${id}/approve`),
+  reject: (id: string, rejectedReason?: string) => 
+    api.put(`/cancellation/${id}/reject`, { rejectedReason }),
+  delete: (id: string) => api.delete(`/cancellation/${id}`),
 };
 
 export const uploadAPI = {
@@ -175,5 +191,11 @@ export const uploadAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+};
+
+export const settingsAPI = {
+  get: () => api.get('/settings'),
+  update: (data: { periodDaysMin: number; periodDaysMax: number; periodDaysDefault: number }) =>
+    api.put('/settings', data),
 };
 

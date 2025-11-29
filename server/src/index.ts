@@ -7,6 +7,8 @@ import classRoutes from './routes/classes.js';
 import attendanceRoutes from './routes/attendance.js';
 import statsRoutes from './routes/stats.js';
 import uploadRoutes from './routes/upload.js';
+import settingsRoutes from './routes/settings.js';
+import cancellationRoutes from './routes/cancellation.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { verifyEmailConnection, isEmailConfigured } from './lib/email.js';
 
@@ -39,6 +41,8 @@ app.use('/api/classes', classRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/cancellation', cancellationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -18,7 +18,9 @@ router.get('/', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest, re
     // 선생님은 학생만 조회 가능
     if (req.user!.role === 'TEACHER') {
       where.role = 'STUDENT';
-    } else if (role) {
+    } 
+    // 관리자는 role 쿼리 파라미터가 있으면 해당 역할만, 없으면 모든 역할 조회 가능
+    else if (req.user!.role === 'SUPER_ADMIN' && role) {
       where.role = role;
     }
 
@@ -75,15 +77,7 @@ router.get('/:id', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest,
 
     const user = await prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        avatarUrl: true,
-        isActive: true,
-        createdAt: true,
+      include: {
         studentClass: {
           include: {
             class: {
@@ -95,7 +89,7 @@ router.get('/:id', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest,
             },
           },
         },
-        seat: {
+        seats: {
           include: {
             class: {
               select: { id: true, name: true },
@@ -109,8 +103,8 @@ router.get('/:id', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest,
       throw new AppError('사용자를 찾을 수 없습니다.', 404);
     }
 
-    // 선생님은 학생만 조회 가능
-    if (req.user!.role === 'TEACHER' && user.role !== 'STUDENT') {
+    // 선생님은 자신의 정보 또는 학생만 조회 가능
+    if (req.user!.role === 'TEACHER' && user.id !== req.user!.id && user.role !== 'STUDENT') {
       throw new AppError('권한이 없습니다.', 403);
     }
 
@@ -127,7 +121,7 @@ router.get('/:id', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest,
 router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const { id } = req.params;
-    const { name, phone, role, isActive, classIds } = req.body;
+    const { name, phone, role, isActive, classIds, joinedDate, annualLeave, monthlyLeave } = req.body;
 
     // 기존 사용자 정보 조회
     const existingUser = await prisma.user.findUnique({
@@ -151,6 +145,9 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next)
         ...(phone !== undefined && { phone }),
         ...(role && { role }),
         ...(isActive !== undefined && { isActive }),
+        ...(joinedDate && { joinedDate: new Date(joinedDate) }),
+        ...(annualLeave !== undefined && { annualLeave: parseInt(annualLeave) }),
+        ...(monthlyLeave !== undefined && { monthlyLeave: parseInt(monthlyLeave) }),
       },
       select: {
         id: true,
@@ -194,9 +191,10 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next)
 
       // 클래스 추가
       for (const classId of toAdd) {
-        // 클래스 존재 확인
+        // 클래스 존재 확인 및 스케줄 정보 포함
         const classExists = await prisma.class.findUnique({
           where: { id: classId },
+          select: { id: true, name: true, schedule: true },
         });
 
         if (!classExists) {
@@ -211,14 +209,65 @@ router.put('/:id', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, next)
           },
         });
 
-        if (!existing) {
-          await prisma.classMember.create({
+        if (existing) {
+          continue;
+        }
+
+        // 학생이 이미 수강 중인 클래스들 조회 (현재 추가하려는 클래스 제외)
+        const studentClasses = await prisma.classMember.findMany({
+          where: { 
+            studentId: id,
+            classId: { not: classId }, // 현재 추가하려는 클래스 제외
+          },
+          include: {
+            class: {
+              select: { id: true, name: true, schedule: true },
+            },
+          },
+        });
+
+        // 시간대 충돌 체크
+        if (classExists.schedule) {
+          const { isScheduleConflict } = await import('../lib/scheduleUtils.js');
+          for (const studentClass of studentClasses) {
+            if (studentClass.class.schedule) {
+              if (isScheduleConflict(classExists.schedule, studentClass.class.schedule)) {
+                throw new AppError(
+                  `시간대 충돌: "${classExists.name}" 클래스와 "${studentClass.class.name}" 클래스의 시간대가 겹칩니다. (${classExists.schedule} vs ${studentClass.class.schedule})`,
+                  400
+                );
+              }
+            }
+          }
+        }
+
+        // 트랜잭션으로 학생 추가 및 좌석 자동 배정
+        await prisma.$transaction(async (tx) => {
+          // 학생을 클래스에 추가
+          await tx.classMember.create({
             data: {
               studentId: id,
               classId,
             },
           });
-        }
+
+          // 클래스의 빈 좌석 찾기
+          const emptySeat = await tx.seat.findFirst({
+            where: {
+              classId,
+              studentId: null,
+            },
+            orderBy: [{ row: 'asc' }, { col: 'asc' }],
+          });
+
+          // 빈 좌석이 있으면 자동 배정
+          if (emptySeat) {
+            await tx.seat.update({
+              where: { id: emptySeat.id },
+              data: { studentId: id },
+            });
+          }
+        });
       }
     } else if (role !== 'STUDENT' && existingUser.role === 'STUDENT') {
       // 역할이 STUDENT에서 다른 역할로 변경된 경우 모든 클래스에서 제거

@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middlewares/errorHandler.js';
 import { authenticate, authorize, AuthRequest } from '../middlewares/auth.js';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, format, addDays, parseISO } from 'date-fns';
+import { calculatePeriod, calculatePeriodByNumber, formatPeriodLabel } from '../lib/periodUtils.js';
+import { calculateAttendanceRate } from '../lib/attendanceUtils.js';
 
 const router = Router();
 
@@ -12,46 +14,85 @@ router.use(authenticate);
 router.get('/class/:classId', authorize('SUPER_ADMIN', 'TEACHER'), async (req: AuthRequest, res, next) => {
   try {
     const { classId } = req.params;
-    const { months = '3' } = req.query;
+    const { periods = '3' } = req.query;
 
-    const monthsCount = parseInt(months as string);
+    // 클래스 정보 가져오기 (startDate, periodDays 포함)
+    const classData = await prisma.class.findUnique({
+      where: { id: classId },
+      select: { startDate: true, periodDays: true },
+    });
+
+    if (!classData) {
+      throw new AppError('클래스를 찾을 수 없습니다.', 404);
+    }
+
+    const periodsCount = parseInt(periods as string);
     const now = new Date();
 
-    // 최근 N개월 데이터
-    const monthlyStats = [];
+    // 현재 기간 계산
+    const currentPeriod = calculatePeriod(classData.startDate, classData.periodDays, now);
+    
+    console.log('📊 Class stats request:', {
+      classId,
+      startDate: classData.startDate,
+      periodDays: classData.periodDays,
+      currentPeriod: currentPeriod.periodNumber,
+      periodsCount,
+    });
 
-    for (let i = 0; i < monthsCount; i++) {
-      const targetDate = subMonths(now, i);
-      const startDate = startOfMonth(targetDate);
-      const endDate = endOfMonth(targetDate);
+    // 최근 N개 기간 데이터
+    const periodStats = [];
+
+    // 최소 1개 기간은 항상 반환 (데이터가 없어도)
+    const startPeriodNumber = Math.max(1, currentPeriod.periodNumber - periodsCount + 1);
+    
+    for (let periodNumber = startPeriodNumber; periodNumber <= currentPeriod.periodNumber; periodNumber++) {
+      const period = calculatePeriodByNumber(
+        classData.startDate,
+        classData.periodDays,
+        periodNumber
+      );
 
       const attendances = await prisma.attendance.findMany({
         where: {
           classId,
           date: {
-            gte: startDate,
-            lte: endDate,
+            gte: period.startDate,
+            lte: period.endDate,
           },
         },
       });
 
-      const total = attendances.length;
-      const present = attendances.filter(
-        (a) => a.status === 'PRESENT' || a.status === 'LATE'
-      ).length;
+      const stats = calculateAttendanceRate(attendances);
 
-      monthlyStats.unshift({
-        month: format(targetDate, 'yyyy-MM'),
-        label: format(targetDate, 'M월'),
-        total,
-        present,
-        absent: attendances.filter((a) => a.status === 'ABSENT').length,
-        late: attendances.filter((a) => a.status === 'LATE').length,
-        rate: total > 0 ? Math.round((present / total) * 100) : 0,
+      console.log(`📊 Period ${periodNumber} stats:`, {
+        periodLabel: formatPeriodLabel(period.startDate, period.endDate, periodNumber),
+        total: stats.total,
+        present: stats.present,
+        late: stats.late,
+        adjustedAbsent: stats.adjustedAbsent,
+        rate: stats.rate,
+        dateRange: `${format(period.startDate, 'yyyy-MM-dd')} ~ ${format(period.endDate, 'yyyy-MM-dd')}`,
+      });
+
+      periodStats.push({
+        period: periodNumber,
+        periodLabel: formatPeriodLabel(period.startDate, period.endDate, periodNumber),
+        startDate: format(period.startDate, 'yyyy-MM-dd'),
+        endDate: format(period.endDate, 'yyyy-MM-dd'),
+        total: stats.total,
+        present: stats.present,
+        absent: stats.adjustedAbsent, // 조정된 결석 횟수
+        originalAbsent: stats.absent, // 원본 결석 횟수 (지각 3번 = 결석 1번 반영 전)
+        late: stats.late,
+        lateToAbsent: stats.lateToAbsent,
+        rate: stats.rate,
       });
     }
+    
+    console.log('📈 Period stats generated:', periodStats.length, 'periods');
 
-    // 학생별 출석률
+    // 학생별 출석률 (현재 기간 기준)
     const members = await prisma.classMember.findMany({
       where: { classId },
       include: {
@@ -63,34 +104,30 @@ router.get('/class/:classId', authorize('SUPER_ADMIN', 'TEACHER'), async (req: A
 
     const studentStats = await Promise.all(
       members.map(async (member) => {
-        const startDate = startOfMonth(now);
-        const endDate = endOfMonth(now);
-
         const attendances = await prisma.attendance.findMany({
           where: {
             classId,
             studentId: member.studentId,
             date: {
-              gte: startDate,
-              lte: endDate,
+              gte: currentPeriod.startDate,
+              lte: currentPeriod.endDate,
             },
           },
         });
 
-        const total = attendances.length;
-        const present = attendances.filter(
-          (a) => a.status === 'PRESENT' || a.status === 'LATE'
-        ).length;
-        const absent = attendances.filter((a) => a.status === 'ABSENT').length;
+        const stats = calculateAttendanceRate(attendances);
 
         return {
           student: member.student,
           stats: {
-            total,
-            present,
-            absent,
-            rate: total > 0 ? Math.round((present / total) * 100) : 100,
-            warning: absent >= 2, // 2번 이상 결석시 경고
+            total: stats.total,
+            present: stats.present,
+            absent: stats.adjustedAbsent, // 조정된 결석 횟수
+            late: stats.late,
+            lateToAbsent: stats.lateToAbsent,
+            rate: stats.rate,
+            warning: stats.adjustedAbsent >= 2, // 조정된 결석 2번 이상시 경고
+            originalAbsent: stats.absent, // 원본 결석 횟수 (지각 3번 = 결석 1번 반영 전)
           },
         };
       })
@@ -103,11 +140,54 @@ router.get('/class/:classId', authorize('SUPER_ADMIN', 'TEACHER'), async (req: A
       return a.stats.rate - b.stats.rate;
     });
 
+    // 클래스의 승인된 휴강 신청 조회 및 보강일 계산
+    const approvedCancellations = await prisma.classCancellationRequest.findMany({
+      where: {
+        classId,
+        status: 'APPROVED',
+      },
+      select: {
+        dates: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let cancellationInfo = null;
+    if (approvedCancellations.length > 0 && classData.startDate && classData.periodDays) {
+      const allCancellationDates = approvedCancellations.flatMap(c => c.dates);
+      const startDate = parseISO(classData.startDate.toISOString().split('T')[0]);
+      const originalPeriodEndDate = addDays(startDate, classData.periodDays);
+      
+      // 보강일 계산: 각 휴강일마다 개강 마지막날 뒤로 순차적으로 배치
+      const makeUpDates: string[] = [];
+      let currentMakeUpDate = addDays(originalPeriodEndDate, 1);
+      
+      for (const cancellation of approvedCancellations) {
+        for (const _ of cancellation.dates) {
+          makeUpDates.push(format(currentMakeUpDate, 'yyyy-MM-dd'));
+          currentMakeUpDate = addDays(currentMakeUpDate, 1);
+        }
+      }
+
+      cancellationInfo = {
+        dates: allCancellationDates,
+        makeUpDates,
+      };
+    }
+
     res.json({
       success: true,
       data: {
-        monthly: monthlyStats,
+        class: {
+          id: classId,
+          startDate: classData.startDate ? format(classData.startDate, 'yyyy-MM-dd') : null,
+          periodDays: classData.periodDays,
+          currentPeriod: currentPeriod.periodNumber,
+        },
+        periods: periodStats,
         students: studentStats,
+        cancellationInfo,
       },
     });
   } catch (error) {
@@ -140,32 +220,38 @@ router.get('/overview', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, 
       },
     });
 
-    const total = monthlyAttendances.length;
-    const present = monthlyAttendances.filter(
-      (a) => a.status === 'PRESENT' || a.status === 'LATE'
-    ).length;
+    const overallStats = calculateAttendanceRate(monthlyAttendances);
+    const total = overallStats.total;
+    const present = overallStats.effectivePresent;
 
-    // 클래스별 출석률
+    // 클래스별 출석률 (활성 클래스만)
     const classes = await prisma.class.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, status: true },
     });
 
     const classStats = await Promise.all(
       classes.map(async (cls) => {
         const attendances = monthlyAttendances.filter((a) => a.classId === cls.id);
-        const clsTotal = attendances.length;
-        const clsPresent = attendances.filter(
-          (a) => a.status === 'PRESENT' || a.status === 'LATE'
-        ).length;
+        const stats = calculateAttendanceRate(attendances);
 
         return {
           id: cls.id,
           name: cls.name,
-          rate: clsTotal > 0 ? Math.round((clsPresent / clsTotal) * 100) : 0,
+          rate: stats.rate,
+          status: cls.status,
         };
       })
     );
+
+    // 폐강된 클래스 목록 (차별점 표시용)
+    const cancelledClasses = await prisma.class.findMany({
+      where: { 
+        status: 'CANCELLED',
+        isActive: true, // 비활성화되지 않은 폐강 클래스만
+      },
+      select: { id: true, name: true, status: true },
+    });
 
     // 경고 학생 목록 (출석률 80% 미만)
     const warningStudents = await prisma.user.findMany({
@@ -219,12 +305,15 @@ router.get('/overview', authorize('SUPER_ADMIN'), async (req: AuthRequest, res, 
           activeClasses,
         },
         monthlyStats: {
-          total,
-          present,
-          absent: monthlyAttendances.filter((a) => a.status === 'ABSENT').length,
-          rate: total > 0 ? Math.round((present / total) * 100) : 0,
+          total: overallStats.total,
+          present: overallStats.effectivePresent,
+          absent: overallStats.adjustedAbsent,
+          late: overallStats.late,
+          lateToAbsent: overallStats.lateToAbsent,
+          rate: overallStats.rate,
         },
         classStats,
+        cancelledClasses, // 폐강된 클래스 목록
         warningStudents: studentsWithWarning,
       },
     });
@@ -260,18 +349,17 @@ router.get('/student/:studentId', authorize('SUPER_ADMIN', 'TEACHER'), async (re
         },
       });
 
-      const total = attendances.length;
-      const present = attendances.filter(
-        (a) => a.status === 'PRESENT' || a.status === 'LATE'
-      ).length;
+      const stats = calculateAttendanceRate(attendances);
 
       monthlyStats.unshift({
         month: format(targetDate, 'yyyy-MM'),
         label: format(targetDate, 'M월'),
-        total,
-        present,
-        absent: attendances.filter((a) => a.status === 'ABSENT').length,
-        rate: total > 0 ? Math.round((present / total) * 100) : 100,
+        total: stats.total,
+        present: stats.present,
+        absent: stats.adjustedAbsent, // 조정된 결석 횟수
+        late: stats.late,
+        lateToAbsent: stats.lateToAbsent,
+        rate: stats.rate,
       });
     }
 
@@ -358,12 +446,8 @@ router.get('/class/:classId/monthly', authorize('SUPER_ADMIN', 'TEACHER'), async
           },
         });
 
-        const total = attendances.length;
-        const present = attendances.filter(
-          (a) => a.status === 'PRESENT' || a.status === 'LATE'
-        ).length;
-        const absent = attendances.filter((a) => a.status === 'ABSENT').length;
-        const late = attendances.filter((a) => a.status === 'LATE').length;
+        const stats = calculateAttendanceRate(attendances);
+        
         const sickLeave = attendances.filter((a) => a.status === 'SICK_LEAVE').length;
         const vacation = attendances.filter((a) => a.status === 'VACATION').length;
         const earlyLeave = attendances.filter((a) => a.status === 'EARLY_LEAVE').length;
@@ -371,14 +455,15 @@ router.get('/class/:classId/monthly', authorize('SUPER_ADMIN', 'TEACHER'), async
         return {
           student: member.student,
           stats: {
-            total,
-            present,
-            absent,
-            late,
+            total: stats.total,
+            present: stats.present,
+            absent: stats.adjustedAbsent, // 조정된 결석 횟수
+            late: stats.late,
+            lateToAbsent: stats.lateToAbsent,
             sickLeave,
             vacation,
             earlyLeave,
-            rate: total > 0 ? Math.round((present / total) * 100) : 0,
+            rate: stats.rate,
           },
         };
       })

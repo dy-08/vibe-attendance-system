@@ -11,6 +11,7 @@ interface StatCardProps {
     positive: boolean;
   };
   className?: string;
+  onClick?: () => void;
 }
 
 export default function StatCard({
@@ -20,9 +21,14 @@ export default function StatCard({
   value,
   change,
   className,
+  onClick,
 }: StatCardProps) {
   return (
-    <div className={clsx('stat-card', className)}>
+    <div 
+      className={clsx('stat-card', onClick && 'stat-card--clickable', className)}
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : undefined}
+    >
       <div className={`stat-card__icon stat-card__icon--${iconVariant}`}>
         {icon}
       </div>

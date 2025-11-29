@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import Avatar from '../common/Avatar';
+import { cancellationAPI } from '../../services/api';
 
 // Icons
 const LogoIcon = () => (
@@ -118,15 +119,17 @@ const getNavItems = (role: string) => {
 
   const teacherNav = [
     { path: '/teacher', icon: <HomeIcon />, label: '대시보드', end: true },
-    { path: '/teacher/classes', icon: <GridIcon />, label: '클래스 관리' },
+    { path: '/teacher/my-classes', icon: <GridIcon />, label: '내 클래스 목록' },
     { path: '/teacher/students', icon: <UsersIcon />, label: '학생 관리' },
     { path: '/teacher/attendance', icon: <CalendarIcon />, label: '출결 관리' },
+    { path: '/teacher/leave', icon: <CalendarIcon />, label: '연차/월차 관리' },
   ];
 
   const adminNav = [
     { path: '/admin', icon: <HomeIcon />, label: '대시보드', end: true },
     { path: '/admin/users', icon: <UsersIcon />, label: '사용자 관리' },
     { path: '/admin/classes', icon: <GridIcon />, label: '클래스 관리' },
+    { path: '/admin/cancellation-requests', icon: <CalendarIcon />, label: '휴강 신청 관리' },
   ];
 
   const guestNav = [
@@ -164,6 +167,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [hasNewCancellationResponse, setHasNewCancellationResponse] = useState(false);
 
   if (!user) return null;
 
@@ -181,6 +185,36 @@ export default function DashboardLayout() {
     logout();
     navigate('/login');
   };
+
+  // 선생님인 경우 새로운 결재 답변 확인
+  useEffect(() => {
+    if (user?.role === 'TEACHER') {
+      const checkNewResponses = async () => {
+        try {
+          const response = await cancellationAPI.getMy();
+          const requests = response.data?.data || [];
+          
+          // reviewedAt이 있고, localStorage에 저장된 마지막 확인 시간보다 이후인 경우
+          const hasNew = requests.some((req: any) => {
+            if (!req.reviewedAt || (req.status !== 'APPROVED' && req.status !== 'REJECTED')) {
+              return false;
+            }
+            const lastChecked = localStorage.getItem(`lastChecked_${req.id}`);
+            return !lastChecked || new Date(req.reviewedAt) > new Date(lastChecked);
+          });
+          
+          setHasNewCancellationResponse(hasNew);
+        } catch (error) {
+          console.error('Failed to check new cancellation responses:', error);
+        }
+      };
+      
+      checkNewResponses();
+      // 30초마다 확인
+      const interval = setInterval(checkNewResponses, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, location.pathname]); // location.pathname이 변경될 때마다 다시 확인
 
   return (
     <div className="dashboard-layout">
@@ -208,7 +242,7 @@ export default function DashboardLayout() {
             <div className="sidebar__nav-title">메뉴</div>
             <ul className="sidebar__nav-list">
               {navItems.map((item) => (
-                <li key={item.path}>
+                <li key={item.path} style={{ position: 'relative' }}>
                   <NavLink
                     to={item.path}
                     end={item.end}
@@ -219,6 +253,22 @@ export default function DashboardLayout() {
                   >
                     <span className="sidebar__nav-icon">{item.icon}</span>
                     <span className="sidebar__nav-text">{item.label}</span>
+                    {item.path === '/teacher/leave' && hasNewCancellationResponse && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: 'var(--color-info)',
+                          boxShadow: '0 0 0 2px var(--bg-primary)',
+                        }}
+                        title="새로운 결재 답변이 있습니다"
+                      />
+                    )}
                   </NavLink>
                 </li>
               ))}
@@ -228,6 +278,20 @@ export default function DashboardLayout() {
           <div className="sidebar__nav-section">
             <div className="sidebar__nav-title">설정</div>
             <ul className="sidebar__nav-list">
+              {user.role === 'SUPER_ADMIN' && (
+                <li>
+                  <NavLink
+                    to="/admin/settings"
+                    className={({ isActive }) =>
+                      `sidebar__nav-item ${isActive ? 'sidebar__nav-item--active' : ''}`
+                    }
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <span className="sidebar__nav-icon"><SettingsIcon /></span>
+                    <span className="sidebar__nav-text">시스템 설정</span>
+                  </NavLink>
+                </li>
+              )}
               <li>
                 <button 
                   className="sidebar__nav-item w-full"

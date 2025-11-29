@@ -42,6 +42,7 @@ interface Class {
   description?: string;
   schedule?: string;
   isActive?: boolean;
+  status?: 'PREPARING' | 'ACTIVE' | 'CANCELLED' | 'COMPLETED';
 }
 
 interface UserDetail extends User {
@@ -80,6 +81,9 @@ export default function AdminUsers() {
     role: '',
     isActive: true,
     classIds: [] as string[],
+    joinedDate: '',
+    annualLeave: 0,
+    monthlyLeave: 0,
   });
 
   useEffect(() => {
@@ -129,7 +133,11 @@ export default function AdminUsers() {
 
       const userDetailData = userDetailRes.data.data;
       setUserDetail(userDetailData);
-      setClasses(classesRes.data.data);
+      
+      // 모든 클래스 가져오기 (PREPARING, ACTIVE, CANCELLED, COMPLETED 모두 포함)
+      const allClasses = classesRes.data.data || [];
+      console.log('Loaded classes:', allClasses); // 디버깅용
+      setClasses(allClasses);
 
       // 현재 클래스 ID 설정
       if (userDetailData.studentClass && userDetailData.studentClass.length > 0) {
@@ -138,9 +146,22 @@ export default function AdminUsers() {
           classIds: userDetailData.studentClass.map((sc: { class: { id: string } }) => sc.class.id),
         }));
       }
-    } catch (error) {
+
+      // 선생님 정보 설정
+      if (userDetailData.role === 'TEACHER') {
+        setEditData(prev => ({
+          ...prev,
+          joinedDate: userDetailData.joinedDate ? format(new Date(userDetailData.joinedDate), 'yyyy-MM-dd') : '',
+          annualLeave: userDetailData.annualLeave || 0,
+          monthlyLeave: userDetailData.monthlyLeave || 0,
+        }));
+      }
+    } catch (error: any) {
       console.error('Failed to fetch user detail or classes:', error);
-      toast.error('사용자 정보를 불러오는데 실패했습니다.');
+      const errorMessage = error.response?.data?.message || '사용자 정보를 불러오는데 실패했습니다.';
+      toast.error(errorMessage);
+      // 에러 발생 시에도 빈 배열로 설정하여 UI가 깨지지 않도록 함
+      setClasses([]);
     } finally {
       setLoadingClasses(false);
     }
@@ -401,6 +422,41 @@ export default function AdminUsers() {
               value={String(editData.isActive)}
               onChange={(e) => setEditData({ ...editData, isActive: e.target.value === 'true' })}
             />
+            {editData.role === 'TEACHER' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">입사일</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={editData.joinedDate}
+                    onChange={(e) => setEditData({ ...editData, joinedDate: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">연차 (일)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    min="0"
+                    value={editData.annualLeave}
+                    onChange={(e) => setEditData({ ...editData, annualLeave: parseInt(e.target.value) || 0 })}
+                  />
+                  <p className="form-hint">선생님의 남은 연차 일수를 입력하세요.</p>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">월차 (일)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    min="0"
+                    value={editData.monthlyLeave}
+                    onChange={(e) => setEditData({ ...editData, monthlyLeave: parseInt(e.target.value) || 0 })}
+                  />
+                  <p className="form-hint">선생님의 남은 월차 일수를 입력하세요.</p>
+                </div>
+              </>
+            )}
             {editData.role === 'STUDENT' && (
               <div className="flex flex-col gap-sm">
                 <label className="input-label">클래스</label>
@@ -448,7 +504,22 @@ export default function AdminUsers() {
                               style={{ margin: 0 }}
                             />
                             <div className="flex-1">
-                              <div className="font-medium text-sm">{cls.name}</div>
+                              <div className="flex items-center gap-sm">
+                                <div className="font-medium text-sm">{cls.name}</div>
+                                {cls.status && (
+                                  <span className={`badge badge--${
+                                    cls.status === 'ACTIVE' ? 'success' : 
+                                    cls.status === 'PREPARING' ? 'warning' : 
+                                    cls.status === 'COMPLETED' ? 'info' : 
+                                    'error'
+                                  }`} style={{ fontSize: '10px' }}>
+                                    {cls.status === 'ACTIVE' ? '개강' : 
+                                     cls.status === 'PREPARING' ? '개강 준비' : 
+                                     cls.status === 'COMPLETED' ? '수료' : 
+                                     '폐강'}
+                                  </span>
+                                )}
+                              </div>
                               {cls.description && (
                                 <div className="text-xs text-tertiary">{cls.description}</div>
                               )}

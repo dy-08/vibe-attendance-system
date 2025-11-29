@@ -11,44 +11,57 @@ datasource db {
 
 // 사용자 역할
 enum Role {
-  GUEST         // 손님
-  STUDENT       // 학생
-  TEACHER       // 선생님
-  SUPER_ADMIN   // 슈퍼관리자
+  GUEST // 손님
+  STUDENT // 학생
+  TEACHER // 선생님
+  SUPER_ADMIN // 슈퍼관리자
 }
 
 // 출결 상태
 enum AttendanceStatus {
-  PRESENT       // 출석
-  ABSENT        // 결석
-  LATE          // 지각
-  EARLY_LEAVE   // 조퇴
-  SICK_LEAVE    // 병가
-  VACATION      // 휴가
+  PRESENT // 출석
+  ABSENT // 결석
+  LATE // 지각
+  EARLY_LEAVE // 조퇴
+  SICK_LEAVE // 병가
+  VACATION // 휴가
+}
+
+// 클래스 상태
+enum ClassStatus {
+  PREPARING // 개강 준비 (학생 모집 중)
+  ACTIVE // 개강 (진행 중)
+  CANCELLED // 폐강 (인원 미달 등으로 취소)
+  COMPLETED // 수료 (정상 종료)
 }
 
 // 사용자
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String?   // 소셜 로그인 사용자는 null 가능
-  name          String
-  phone         String?
-  role          Role      @default(STUDENT)
-  avatarUrl     String?   // 프로필 사진
-  provider      String?   // 'local', 'kakao', 'naver'
-  socialId      String?   // 소셜 로그인 ID
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String? // 소셜 로그인 사용자는 null 가능
+  name      String
+  phone     String?
+  role      Role     @default(STUDENT)
+  avatarUrl String? // 프로필 사진
+  provider  String? // 'local', 'kakao', 'naver'
+  socialId  String? // 소셜 로그인 ID
+  isActive  Boolean  @default(true)
+  // 선생님 정보
+  joinedDate    DateTime? @db.Date // 입사일
+  annualLeave   Int       @default(0) // 연차 (남은 일수)
+  monthlyLeave  Int       @default(0) // 월차 (남은 일수)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // 학생인 경우
-  studentClass  ClassMember[]
-  attendances   Attendance[]
-  seat          Seat?
+  studentClass ClassMember[]
+  attendances  Attendance[]
+  seats        Seat[] // 한 학생이 여러 클래스의 좌석을 가질 수 있음
 
   // 선생님인 경우
   teachingClasses Class[]
+  cancellationRequests ClassCancellationRequest[] // 휴강 신청
 
   @@unique([provider, socialId])
   @@map("users")
@@ -56,37 +69,41 @@ model User {
 
 // 클래스 (반)
 model Class {
-  id          String    @id @default(cuid())
-  name        String    // 예: "중등 수학 A반"
+  id          String       @id @default(cuid())
+  name        String // 예: "중등 수학 A반"
   description String?
-  schedule    String?   // 예: "월,수,금 14:00-16:00"
-  maxStudents Int       @default(30)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  schedule    String? // 예: "월,수,금 14:00-16:00"
+  maxStudents Int          @default(30)
+  status      ClassStatus  @default(PREPARING) // 클래스 상태
+  isActive    Boolean      @default(true)
+  startDate   DateTime?    @db.Date // 개강일자 (출석률 계산 시작일)
+  periodDays  Int          @default(30) // 기간 단위 (일수, 기본 30일)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // 담당 선생님
-  teacher     User      @relation(fields: [teacherId], references: [id])
-  teacherId   String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+  teacherId String
 
   // 클래스 멤버
   members     ClassMember[]
   seats       Seat[]
   attendances Attendance[]
+  cancellationRequests ClassCancellationRequest[] // 휴강 신청
 
   @@map("classes")
 }
 
 // 클래스 멤버 (학생-클래스 관계)
 model ClassMember {
-  id        String   @id @default(cuid())
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  joinedAt DateTime @default(now())
 
-  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
 
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classId   String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String
 
   @@unique([studentId, classId])
   @@map("class_members")
@@ -94,19 +111,21 @@ model ClassMember {
 
 // 좌석
 model Seat {
-  id        String   @id @default(cuid())
-  row       Int      // 행
-  col       Int      // 열
-  label     String?  // 좌석 라벨 (예: "A1")
+  id    String  @id @default(cuid())
+  row   Int // 행
+  col   Int // 열
+  label String? // 좌석 라벨 (예: "A1")
 
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classId   String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String
 
   // 지정된 학생 (nullable = 빈 좌석)
-  student   User?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  studentId String?  @unique
+  // 클래스별로 학생이 하나의 좌석만 가질 수 있음 (같은 학생이 다른 클래스에서는 다른 좌석 가능)
+  student   User?   @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  studentId String?
 
-  @@unique([classId, row, col])
+  @@unique([classId, row, col]) // 같은 클래스에서 같은 위치의 좌석은 중복 불가
+  @@unique([classId, studentId]) // 같은 클래스에서 같은 학생은 하나의 좌석만 가질 수 있음
   @@map("seats")
 }
 
@@ -115,16 +134,16 @@ model Attendance {
   id        String           @id @default(cuid())
   date      DateTime         @db.Date
   status    AttendanceStatus @default(PRESENT)
-  note      String?          // 사유/메모
-  checkInAt DateTime?        // 체크인 시간
+  note      String? // 사유/메모
+  checkInAt DateTime? // 체크인 시간
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  student   User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
 
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classId   String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String
 
   @@unique([studentId, classId, date])
   @@map("attendances")
@@ -132,14 +151,55 @@ model Attendance {
 
 // 알림 로그
 model Notification {
-  id        String   @id @default(cuid())
-  type      String   // "SMS", "KAKAO"
-  recipient String   // 수신자 (전화번호 또는 카카오 ID)
+  id        String    @id @default(cuid())
+  type      String // "SMS", "KAKAO"
+  recipient String // 수신자 (전화번호 또는 카카오 ID)
   message   String
-  status    String   @default("PENDING") // PENDING, SENT, FAILED
+  status    String    @default("PENDING") // PENDING, SENT, FAILED
   sentAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@map("notifications")
 }
 
+// 시스템 설정
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique // 설정 키 (예: "periodDays.min", "periodDays.max", "periodDays.default")
+  value     String   // 설정 값 (JSON 문자열 또는 단순 문자열)
+  description String? // 설정 설명
+  updatedBy String?  // 마지막 수정자 ID
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("system_configs")
+}
+
+// 휴강 신청
+enum CancellationRequestStatus {
+  PENDING // 대기 중
+  APPROVED // 승인됨
+  REJECTED // 거절됨
+}
+
+model ClassCancellationRequest {
+  id        String   @id @default(cuid())
+  reason    String   // 휴강 사유
+  dates     String[] // 휴강 일자들 (JSON 배열)
+  status    CancellationRequestStatus @default(PENDING)
+  rejectedReason String? // 거절 사유
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reviewedAt DateTime? // 승인/거절 일시
+  reviewedBy String? // 승인/거절한 관리자 ID
+
+  // 신청한 선생님
+  teacher   User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId String
+
+  // 휴강할 클래스
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId String
+
+  @@map("class_cancellation_requests")
+}
