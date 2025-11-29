@@ -206,7 +206,7 @@ export default function StudentDashboard() {
                         value={cs.stats.isWaiting ? 0 : cs.stats.rate}
                         size="md"
                         color={
-                          cs.stats.isWaiting ? 'default' :
+                          cs.stats.isWaiting ? undefined :
                           cs.stats.rate >= 80 ? 'success' :
                           cs.stats.rate >= 60 ? 'warning' : 'error'
                         }
@@ -262,7 +262,7 @@ export default function StudentDashboard() {
                           <>
                             <div className="text-xs text-tertiary mb-xs">
                               출석 {cs.stats.present} | 결석 {cs.stats.absent} | 지각 {cs.stats.late}
-                              {cs.stats.lateToAbsent > 0 && (
+                              {cs.stats.lateToAbsent && cs.stats.lateToAbsent > 0 && (
                                 <span className="text-warning"> (지각 {cs.stats.late}번 = 결석 {cs.stats.lateToAbsent}번 반영)</span>
                               )}
                             </div>
@@ -366,7 +366,7 @@ export default function StudentDashboard() {
           message={`${withdrawModal.className} 수강을 철회하시겠습니까?\n\n수강 철회 후에는 출석 기록을 확인할 수 없습니다.`}
           confirmText="철회하기"
           cancelText="취소"
-          variant="danger"
+          type="danger"
           loading={submitting}
         />
       )}

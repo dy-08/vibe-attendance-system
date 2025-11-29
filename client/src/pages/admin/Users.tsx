@@ -120,6 +120,9 @@ export default function AdminUsers() {
       role: user.role,
       isActive: user.isActive,
       classIds: [],
+      joinedDate: '',
+      annualLeave: 0,
+      monthlyLeave: 0,
     });
     setEditModal(true);
     setLoadingClasses(true);

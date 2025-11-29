@@ -313,11 +313,11 @@ export default function TeacherStudents() {
                             {cls.name}
                           </div>
                           <div className="text-xs font-medium" style={{ 
-                            color: cls.attendanceRate >= 80 ? 'var(--color-success)' :
-                                   cls.attendanceRate >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
+                            color: (cls.attendanceRate ?? 0) >= 80 ? 'var(--color-success)' :
+                                   (cls.attendanceRate ?? 0) >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
                             marginLeft: 'var(--spacing-xs)',
                           }}>
-                            {cls.attendanceRate}%
+                            {cls.attendanceRate ?? 0}%
                           </div>
                         </div>
                       ))}
